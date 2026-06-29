@@ -1,0 +1,39 @@
+---
+interface Props {
+  rule: string;
+}
+const { rule } = Astro.props;
+---
+
+<label class="rule-check" data-rule={rule}>
+  <input type="checkbox" class="rule-checkbox" />
+  <span><slot /></span>
+</label>
+
+<script>
+  document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
+    const rule = label.dataset.rule!;
+    const checkbox = label.querySelector<HTMLInputElement>('.rule-checkbox')!;
+
+    // Restore checked state from localStorage
+    const saved: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
+    checkbox.checked = saved.includes(rule);
+    label.classList.toggle('checked', checkbox.checked);
+
+    checkbox.addEventListener('change', () => {
+      const current: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
+      const updated = checkbox.checked
+        ? [...current, rule]
+        : current.filter(r => r !== rule);
+      localStorage.setItem('cuaderno:rules', JSON.stringify(updated));
+      label.classList.toggle('checked', checkbox.checked);
+
+      // Update sidebar badge
+      const badge = document.getElementById('ruleCount');
+      if (badge) {
+        badge.textContent = String(updated.length);
+        badge.classList.toggle('zero', updated.length === 0);
+      }
+    });
+  });
+</script>

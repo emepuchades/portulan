@@ -1,0 +1,65 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Prompt para Claude · Cuaderno" isPrompt={true}>
+  <div class="topic-eyebrow">HERRAMIENTA</div>
+  <h1 class="topic-title">Prompt para Claude</h1>
+  <p class="prompt-explainer">
+    Cada tema del cuaderno tiene un check <strong>"Usar en mis reglas de
+    código"</strong>. Marcá los que querés que Claude respete al
+    programar en tu proyecto: el prompt de abajo se actualiza solo,
+    juntando esos temas. Copialo y pegalo en el chat de Claude Code en
+    VS Code, o agregalo directo a tu <code>CLAUDE.md</code>.
+  </p>
+
+  <div class="prompt-output-wrap" id="promptContainer">
+    <div class="prompt-empty">Cargando…</div>
+  </div>
+
+  <button class="btn-copy" id="btnCopy" disabled>Copiar prompt</button>
+</Layout>
+
+<script>
+  const container = document.getElementById('promptContainer')!;
+  const btnCopy   = document.getElementById('btnCopy') as HTMLButtonElement;
+
+  const EMPTY_MSG =
+    'Todavía no marcaste ningún tema. Volvé a cualquier apunte y activá ' +
+    'el check "Usar en mis reglas de código" — el prompt va a aparecer acá.';
+
+  function buildPrompt() {
+    const rules: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
+
+    if (rules.length === 0) {
+      container.innerHTML = `<div class="prompt-empty">${EMPTY_MSG}</div>`;
+      btnCopy.disabled = true;
+      return;
+    }
+
+    const ruleList = rules.map(r => `- ${r}`).join('\n');
+    const text =
+      'Al programar en este proyecto, seguí estas reglas que vengo aplicando en mis apuntes de estudio:\n\n' +
+      ruleList +
+      '\n\nAplicalas de forma consistente en todo el código que generes o modifiques, ' +
+      'y si encontrás un caso que no cubren, preguntame antes de decidir una convención nueva por tu cuenta.';
+
+    container.innerHTML = `<div class="prompt-output">${text}</div>`;
+    btnCopy.disabled = false;
+  }
+
+  buildPrompt();
+
+  btnCopy.addEventListener('click', () => {
+    const text = container.querySelector('.prompt-output')?.textContent;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      btnCopy.textContent = 'Copiado ✓';
+      btnCopy.classList.add('copied');
+      setTimeout(() => {
+        btnCopy.textContent = 'Copiar prompt';
+        btnCopy.classList.remove('copied');
+      }, 1600);
+    });
+  });
+</script>

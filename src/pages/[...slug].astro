@@ -1,0 +1,26 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Concept from '../components/Concept.astro';
+import RuleCheck from '../components/RuleCheck.astro';
+import MarginNote from '../components/MarginNote.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map(post => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<Layout title={`${post.data.title} · Cuaderno`} currentId={post.id}>
+  <div class="topic-eyebrow">{post.data.eyebrow}</div>
+  <h1 class="topic-title">{post.data.title}</h1>
+  <p class="topic-intro">{post.data.intro}</p>
+
+  <Content components={{ Concept, RuleCheck, MarginNote }} />
+</Layout>

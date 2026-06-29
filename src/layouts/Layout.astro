@@ -1,0 +1,101 @@
+---
+import { getCollection } from 'astro:content';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  currentId?: string;
+  isPrompt?: boolean;
+}
+
+const { title = 'Cuaderno · Apuntes de código', currentId, isPrompt = false } = Astro.props;
+
+const allPosts = await getCollection('posts');
+allPosts.sort((a, b) => a.data.order - b.data.order);
+
+// Group posts by group field preserving order
+const groups: Record<string, typeof allPosts> = {};
+for (const post of allPosts) {
+  const g = post.data.group;
+  if (!groups[g]) groups[g] = [];
+  groups[g].push(post);
+}
+---
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-scroll">
+
+    <div class="brand">
+      <span class="brand-mark">⟁</span>
+      <span class="brand-name">Cuaderno</span>
+    </div>
+    <div class="brand-sub">apuntes de código · repaso rápido</div>
+
+    {Object.entries(groups).map(([groupName, posts]) => (
+      <div class="nav-group">
+        <div class="nav-group-title">{groupName}</div>
+        {posts.map(post => (
+          <a
+            class:list={['nav-link', { active: currentId === post.id }]}
+            href={`/${post.id}`}
+          >
+            <span class="nav-dot"></span> {post.data.title}
+          </a>
+        ))}
+      </div>
+    ))}
+
+    <!-- Grupos sin posts todavía -->
+    {['Clean Architecture', 'SOLID y Clean Code', 'Lógica de programación', 'IA']
+      .filter(g => !groups[g])
+      .map(g => (
+        <div class="nav-group">
+          <div class="nav-group-title">{g}</div>
+        </div>
+      ))
+    }
+
+  </div>
+
+  <div class="sidebar-footer">
+    <a
+      class:list={['prompt-nav-btn', { active: isPrompt }]}
+      href="/prompt"
+    >
+      <span class="prompt-nav-left">
+        <span class="prompt-nav-icon">¶</span>
+        <span class="prompt-nav-text">Prompt para Claude</span>
+      </span>
+      <span class="prompt-nav-count zero" id="ruleCount">0</span>
+    </a>
+  </div>
+</nav>
+
+<main class="main">
+  <slot />
+</main>
+
+<script>
+  // Restore rule count badge from localStorage on every page
+  const badge = document.getElementById('ruleCount');
+  if (badge) {
+    const rules: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
+    badge.textContent = String(rules.length);
+    badge.classList.toggle('zero', rules.length === 0);
+  }
+</script>
+
+</body>
+</html>
