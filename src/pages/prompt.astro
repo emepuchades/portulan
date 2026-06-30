@@ -1,65 +1,197 @@
 ---
 import Layout from '../layouts/Layout.astro';
+const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
 ---
 
-<Layout title="Prompt para Claude · Cuaderno" isPrompt={true}>
-  <div class="topic-eyebrow">HERRAMIENTA</div>
-  <h1 class="topic-title">Prompt para Claude</h1>
+<Layout title="Tu prompt · Portulan" isPrompt={true}>
+  <div class="topic-eyebrow">MI AGENTE</div>
+  <h1 class="topic-title">Tu prompt</h1>
   <p class="prompt-explainer">
-    Cada tema del cuaderno tiene un check <strong>"Usar en mis reglas de
-    código"</strong>. Marcá los que querés que Claude respete al
-    programar en tu proyecto: el prompt de abajo se actualiza solo,
-    juntando esos temas. Copialo y pegalo en el chat de Claude Code en
-    VS Code, o agregalo directo a tu <code>CLAUDE.md</code>.
+    La IA sintetiza tus reglas activas en instrucciones coherentes para Claude.
+    Descárgalo como <code>CLAUDE.md</code> o cópialo directo en Claude Code.
   </p>
 
-  <div class="prompt-output-wrap" id="promptContainer">
-    <div class="prompt-empty">Cargando…</div>
+  <!-- Estado: sin reglas -->
+  <div id="stateEmpty" hidden>
+    <p class="prompt-empty">
+      Todavía no tienes reglas activas.
+      <a href="/rules" style="color:var(--mint)">Ve al panel de reglas</a> para añadirlas.
+    </p>
   </div>
 
-  <button class="btn-copy" id="btnCopy" disabled>Copiar prompt</button>
+  <!-- Estado: con reglas -->
+  <div id="stateReady" hidden>
+    <div class="prompt-meta-bar">
+      <span id="metaCount" class="prompt-meta-count"></span>
+      <span id="metaAI" class="prompt-meta-ai" hidden>✦ Sintetizado con IA</span>
+    </div>
+
+    <!-- Output -->
+    <div class="prompt-output-wrap" id="promptContainer"></div>
+
+    <!-- Acciones -->
+    <div class="prompt-actions">
+      <button class="btn-create-md" id="btnCreate" disabled={!apiKey}>
+        <span class="btn-generate-icon">{apiKey ? '✦' : '⊘'}</span>
+        <span id="createLabel">Crear CLAUDE.md con IA</span>
+      </button>
+      <button class="btn-secondary" id="btnCopy">Copiar</button>
+      <button class="btn-secondary btn-sm" id="btnRegenerate" hidden>Regenerar</button>
+    </div>
+  </div>
 </Layout>
 
-<script>
-  const container = document.getElementById('promptContainer')!;
-  const btnCopy   = document.getElementById('btnCopy') as HTMLButtonElement;
+<script is:inline define:vars={{ apiKey }}>
+  const STORAGE_KEY   = 'portulan:rules';
+  const GENERATED_KEY = 'portulan:generated-prompt';
 
-  const EMPTY_MSG =
-    'Todavía no marcaste ningún tema. Volvé a cualquier apunte y activá ' +
-    'el check "Usar en mis reglas de código" — el prompt va a aparecer acá.';
+  const stateEmpty    = document.getElementById('stateEmpty');
+  const stateReady    = document.getElementById('stateReady');
+  const container     = document.getElementById('promptContainer');
+  const metaCount     = document.getElementById('metaCount');
+  const metaAI        = document.getElementById('metaAI');
+  const btnCreate     = document.getElementById('btnCreate');
+  const createLabel   = document.getElementById('createLabel');
+  const btnCopy       = document.getElementById('btnCopy');
+  const btnRegenerate = document.getElementById('btnRegenerate');
 
-  function buildPrompt() {
-    const rules: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
+  function getActiveRules() {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    return raw
+      .filter(r => typeof r === 'string' || r.active)
+      .map(r => typeof r === 'string' ? r : r.text);
+  }
+
+  function rawText(rules) {
+    return `Al programar en este proyecto, sigue estas reglas:\n\n${rules.map(r => `- ${r}`).join('\n')}\n\nAplícalas de forma consistente. Si encuentras un caso no cubierto, consulta antes de adoptar una convención nueva.`;
+  }
+
+  function setOutput(text) {
+    const pre     = document.createElement('pre');
+    pre.className = 'prompt-output';
+    pre.textContent = text;
+    container.innerHTML = '';
+    container.appendChild(pre);
+  }
+
+  function downloadMD(text) {
+    const blob = new Blob([`# Mi agente\n\n${text}\n`], { type: 'text/markdown' });
+    const a    = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob), download: 'CLAUDE.md',
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function init() {
+    const rules = getActiveRules();
 
     if (rules.length === 0) {
-      container.innerHTML = `<div class="prompt-empty">${EMPTY_MSG}</div>`;
-      btnCopy.disabled = true;
+      stateEmpty.hidden = false;
+      stateReady.hidden = true;
       return;
     }
 
-    const ruleList = rules.map(r => `- ${r}`).join('\n');
-    const text =
-      'Al programar en este proyecto, seguí estas reglas que vengo aplicando en mis apuntes de estudio:\n\n' +
-      ruleList +
-      '\n\nAplicalas de forma consistente en todo el código que generes o modifiques, ' +
-      'y si encontrás un caso que no cubren, preguntame antes de decidir una convención nueva por tu cuenta.';
+    stateEmpty.hidden = true;
+    stateReady.hidden = false;
 
-    container.innerHTML = `<div class="prompt-output">${text}</div>`;
-    btnCopy.disabled = false;
+    const saved = JSON.parse(localStorage.getItem(GENERATED_KEY) ?? 'null');
+
+    metaCount.textContent = `${rules.length} regla${rules.length !== 1 ? 's' : ''} activa${rules.length !== 1 ? 's' : ''}`;
+
+    if (saved) {
+      metaAI.hidden = false;
+      setOutput(saved.text);
+      if (createLabel) createLabel.textContent = 'Actualizar CLAUDE.md con IA';
+      if (btnRegenerate) btnRegenerate.hidden = false;
+    } else {
+      metaAI.hidden = true;
+      setOutput(rawText(rules));
+      if (createLabel) createLabel.textContent = 'Crear CLAUDE.md con IA';
+      if (btnRegenerate) btnRegenerate.hidden = true;
+    }
   }
 
-  buildPrompt();
+  init();
 
-  btnCopy.addEventListener('click', () => {
-    const text = container.querySelector('.prompt-output')?.textContent;
-    if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-      btnCopy.textContent = 'Copiado ✓';
-      btnCopy.classList.add('copied');
-      setTimeout(() => {
-        btnCopy.textContent = 'Copiar prompt';
-        btnCopy.classList.remove('copied');
-      }, 1600);
+  // ── COPIAR ─────────────────────────────────────────────────────────────────
+  if (btnCopy) {
+    btnCopy.addEventListener('click', () => {
+      const text = container.querySelector('.prompt-output')?.textContent;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        btnCopy.textContent = 'Copiado ✓';
+        setTimeout(() => { btnCopy.textContent = 'Copiar'; }, 1600);
+      });
     });
-  });
+  }
+
+
+  // ── CREAR / ACTUALIZAR CON IA ──────────────────────────────────────────────
+  async function generateAndDownload() {
+    const rules = getActiveRules();
+    if (!rules.length) return;
+
+    if (btnCreate)    { btnCreate.disabled = true; }
+    if (createLabel)  { createLabel.textContent = 'Generando…'; }
+    if (btnRegenerate){ btnRegenerate.disabled = true; }
+
+    container.innerHTML = '<div class="prompt-generating"><span class="ai-dot"></span> Sintetizando tus reglas…</div>';
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-8',
+          max_tokens: 1024,
+          system: `Eres un experto en prompt engineering para asistentes de programación.
+Convierte las reglas de código de un programador en un system prompt natural y coherente para Claude.
+
+El resultado debe:
+- Dirigirse a Claude en segunda persona ("Cuando programes...", "Prioriza...", "Evita...")
+- Ser fluido y natural, no una lista de bullets
+- Capturar el espíritu detrás de las reglas, no repetirlas literalmente
+- Tener entre 3 y 5 párrafos
+- Comenzar con una frase que capture el estilo general del programador`,
+          messages: [{
+            role: 'user',
+            content: `Estas son mis reglas de código. Conviértelas en el system prompt de mi agente:\n\n${rules.map(r => `- ${r}`).join('\n')}`,
+          }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message ?? `Error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.content[0].text.trim();
+      const date = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+
+      localStorage.setItem(GENERATED_KEY, JSON.stringify({ text, date }));
+
+      setOutput(text);
+      downloadMD(text);
+
+      metaAI.hidden = false;
+      if (createLabel)  createLabel.textContent  = 'Actualizar CLAUDE.md con IA';
+      if (btnRegenerate){ btnRegenerate.hidden = false; }
+
+    } catch (err) {
+      container.innerHTML = `<div class="prompt-empty">Error: ${err.message}</div>`;
+    } finally {
+      if (btnCreate)    { btnCreate.disabled     = false; }
+      if (btnRegenerate){ btnRegenerate.disabled = false; }
+    }
+  }
+
+  if (btnCreate)     btnCreate.addEventListener('click', generateAndDownload);
+  if (btnRegenerate) btnRegenerate.addEventListener('click', generateAndDownload);
 </script>

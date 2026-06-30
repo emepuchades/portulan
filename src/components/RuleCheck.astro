@@ -11,29 +11,64 @@ const { rule } = Astro.props;
 </label>
 
 <script>
+  const STORAGE_KEY = 'portulan:rules';
+
+  function makeId() {
+    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function getRules(): any[] {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+  }
+
+  function setRules(rules: any[]) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+  }
+
+  function isActive(rules: any[], text: string): boolean {
+    return rules.some(r =>
+      typeof r === 'string' ? r === text : (r.text === text && r.active)
+    );
+  }
+
+  function updateBadge(rules: any[]) {
+    const badge = document.getElementById('ruleCount');
+    if (!badge) return;
+    const count = rules.filter(r => typeof r === 'string' || r.active).length;
+    badge.textContent = String(count);
+    badge.classList.toggle('zero', count === 0);
+  }
+
   document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
-    const rule = label.dataset.rule!;
+    const rule    = label.dataset.rule!;
     const checkbox = label.querySelector<HTMLInputElement>('.rule-checkbox')!;
 
-    // Restore checked state from localStorage
-    const saved: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
-    checkbox.checked = saved.includes(rule);
+    const saved = getRules();
+    checkbox.checked = isActive(saved, rule);
     label.classList.toggle('checked', checkbox.checked);
 
     checkbox.addEventListener('change', () => {
-      const current: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
-      const updated = checkbox.checked
-        ? [...current, rule]
-        : current.filter(r => r !== rule);
-      localStorage.setItem('cuaderno:rules', JSON.stringify(updated));
-      label.classList.toggle('checked', checkbox.checked);
+      const current = getRules();
+      let updated: any[];
 
-      // Update sidebar badge
-      const badge = document.getElementById('ruleCount');
-      if (badge) {
-        badge.textContent = String(updated.length);
-        badge.classList.toggle('zero', updated.length === 0);
+      if (checkbox.checked) {
+        const existing = current.find(r => typeof r !== 'string' && r.text === rule);
+        if (existing) {
+          updated = current.map(r =>
+            typeof r !== 'string' && r.text === rule ? { ...r, active: true } : r
+          );
+        } else {
+          updated = [...current, { id: makeId(), text: rule, active: true, tags: [] }];
+        }
+      } else {
+        updated = current.map(r =>
+          typeof r !== 'string' && r.text === rule ? { ...r, active: false } : r
+        );
       }
+
+      setRules(updated);
+      updateBadge(updated);
+      label.classList.toggle('checked', checkbox.checked);
     });
   });
 </script>

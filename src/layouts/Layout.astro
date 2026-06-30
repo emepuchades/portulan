@@ -6,14 +6,14 @@ interface Props {
   title?: string;
   currentId?: string;
   isPrompt?: boolean;
+  isRules?: boolean;
 }
 
-const { title = 'Cuaderno · Apuntes de código', currentId, isPrompt = false } = Astro.props;
+const { title = 'Portulan', currentId, isPrompt = false, isRules = false } = Astro.props;
 
 const allPosts = await getCollection('posts');
 allPosts.sort((a, b) => a.data.order - b.data.order);
 
-// Group posts by group field preserving order
 const groups: Record<string, typeof allPosts> = {};
 for (const post of allPosts) {
   const g = post.data.group;
@@ -39,9 +39,12 @@ for (const post of allPosts) {
 
     <div class="brand">
       <span class="brand-mark">⟁</span>
-      <span class="brand-name">Cuaderno</span>
+      <span class="brand-name">Portulan</span>
     </div>
-    <div class="brand-sub">apuntes de código · repaso rápido</div>
+    <div class="brand-sub">cómo programo · para Claude</div>
+
+    <!-- APUNTES -->
+    <div class="nav-section-label">Apuntes</div>
 
     {Object.entries(groups).map(([groupName, posts]) => (
       <div class="nav-group">
@@ -57,7 +60,6 @@ for (const post of allPosts) {
       </div>
     ))}
 
-    <!-- Grupos sin posts todavía -->
     {['Clean Architecture', 'SOLID y Clean Code', 'Lógica de programación', 'IA']
       .filter(g => !groups[g])
       .map(g => (
@@ -67,19 +69,37 @@ for (const post of allPosts) {
       ))
     }
 
-  </div>
+    <!-- MI AGENTE -->
+    <div class="nav-section-label nav-section-label--spaced">Mi agente</div>
 
-  <div class="sidebar-footer">
-    <a
-      class:list={['prompt-nav-btn', { active: isPrompt }]}
-      href="/prompt"
-    >
-      <span class="prompt-nav-left">
-        <span class="prompt-nav-icon">¶</span>
-        <span class="prompt-nav-text">Prompt para Claude</span>
-      </span>
-      <span class="prompt-nav-count zero" id="ruleCount">0</span>
-    </a>
+    <div class="nav-group">
+      <a class:list={['nav-link nav-link--agent', { active: isRules }]} href="/rules">
+        <span class="nav-agent-icon">⊞</span>
+        Reglas
+        <span class="nav-agent-count zero" id="ruleCount">0</span>
+      </a>
+      <a class:list={['nav-link nav-link--agent', { active: isPrompt }]} href="/prompt">
+        <span class="nav-agent-icon">¶</span>
+        Prompt
+      </a>
+    </div>
+
+    <!-- FLUJO -->
+    <div class="sidebar-flow">
+      <div class="sidebar-flow-step">
+        <span class="flow-num">1</span>
+        <span class="flow-text">En cada <strong>apunte</strong>, genera reglas con IA o márcalas a mano</span>
+      </div>
+      <div class="sidebar-flow-step">
+        <span class="flow-num">2</span>
+        <span class="flow-text">En <strong>Reglas</strong>, activa las que aplican ahora</span>
+      </div>
+      <div class="sidebar-flow-step">
+        <span class="flow-num">3</span>
+        <span class="flow-text">En <strong>Prompt</strong>, sintetiza con IA y descarga tu CLAUDE.md</span>
+      </div>
+    </div>
+
   </div>
 </nav>
 
@@ -88,12 +108,19 @@ for (const post of allPosts) {
 </main>
 
 <script>
-  // Restore rule count badge from localStorage on every page
+  // Migrate storage key from old name
+  const _old = localStorage.getItem('cuaderno:rules');
+  if (_old && !localStorage.getItem('portulan:rules')) {
+    localStorage.setItem('portulan:rules', _old);
+    localStorage.removeItem('cuaderno:rules');
+  }
+
   const badge = document.getElementById('ruleCount');
   if (badge) {
-    const rules: string[] = JSON.parse(localStorage.getItem('cuaderno:rules') ?? '[]');
-    badge.textContent = String(rules.length);
-    badge.classList.toggle('zero', rules.length === 0);
+    const raw = JSON.parse(localStorage.getItem('portulan:rules') ?? '[]');
+    const count = raw.filter((r: any) => typeof r === 'string' || r.active).length;
+    badge.textContent = String(count);
+    badge.classList.toggle('zero', count === 0);
   }
 </script>
 
