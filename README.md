@@ -92,7 +92,7 @@ Cada regla está escrita para el prompt: imperativa, una sola decisión, comprob
 
 | Feature | Descripción | Estado |
 |---------|-------------|--------|
-| 🔥 **El Forge** | Conecta tu propia API key de Anthropic. Las reglas seleccionadas van a Claude y vuelven como un prompt sintetizado: sin redundancias, con contexto, ordenado por importancia. | Próximo |
+| 🔥 **El Forge** | Con tu propia API key de Anthropic en `.env` (`ANTHROPIC_API_KEY`), las reglas activas van a Claude y vuelven como un prompt redactado, por grupos. También puede proponer reglas nuevas leyendo los apuntes. **Solo en local:** la llamada sale del navegador y la clave quedaría escrita en el HTML; no pongas esa variable en Vercel ni en ningún despliegue público. | Disponible en local |
 | 📄 **Formatos de export** | El mismo set de reglas exportado como `CLAUDE.md`, `.cursorrules`, system prompt o markdown plano según dónde lo vayas a usar. | Próximo |
 | 🧭 **Modos de contexto** | Las mismas reglas producen prompts distintos según el momento: *Nuevo proyecto*, *Code review*, *Refactor*, *Daily use*. | Planificado |
 | ✍️ **Reglas custom en UI** | Añade tus propias reglas desde la interfaz sin tocar código. Se guardan en `localStorage`. | Planificado |
