@@ -53,10 +53,12 @@ flowchart LR
 
 1. **Lees** el apunte de un tema
 2. **Marcas** "Usar en mis reglas de código" en los conceptos que quieres que aplique la IA
-3. **El Forge** usa tu API key para generar un prompt sintetizado — no una lista de bullet points, sino un sistema de pensamiento coherente
-4. **Copias** el resultado a tu `CLAUDE.md`, `.cursorrules`, o como system prompt
+3. **En «Mi agente»** el `CLAUDE.md` aparece al instante, por secciones (React, Clean Code, SOLID). Ahí puedes añadir reglas propias, activarlas o desactivarlas y etiquetarlas
+4. **Copias o descargas** el resultado, o pides a la IA (con tu API key) que lo redacte como un prompt fluido en vez de una lista
 
 ![Cada concepto termina con una casilla «Usar en mis reglas de código»: al marcarla, la regla pasa a tu prompt](assets/captura-regla.webp)
+
+![Mi agente: a la izquierda tus reglas por grupo, con interruptor y etiquetas; a la derecha el CLAUDE.md que se actualiza con cada cambio](assets/captura-agente.webp)
 
 <br />
 
@@ -80,7 +82,7 @@ Cada regla está escrita para el prompt: imperativa, una sola decisión, comprob
 
 - **Apuntes en MDX** — markdown limpio con componentes Astro reutilizables para reglas, notas y código
 - **Sidebar dinámico** — se genera automáticamente al crear un nuevo archivo `.mdx`; no hay que configurar nada
-- **Rule Builder** — activa reglas con checkboxes; el estado persiste entre páginas via `localStorage`
+- **Mi agente** — reglas y `CLAUDE.md` en la misma pantalla: la lista a la izquierda, el prompt en vivo a la derecha; todo persiste en `localStorage`
 - **Syntax highlighting** — Shiki con Material Theme Palenight en build time, sin JavaScript extra
 - **Sin servidor** — 100% estático, desplegable en Vercel o Netlify en segundos
 

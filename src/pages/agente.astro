@@ -1,0 +1,627 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('posts');
+posts.sort((a, b) => a.data.order - b.data.order);
+
+const firstPostId = posts[0]?.id ?? '';
+const notesText = posts
+  .map(p => `## ${p.data.title}\n\n${p.body ?? ''}`)
+  .join('\n\n---\n\n');
+
+const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
+---
+
+<Layout title="Mi agente · Portulan" isAgent={true} isWide={true}>
+  <div class="topic-eyebrow">MI AGENTE</div>
+  <h1 class="topic-title">Tus reglas, tu CLAUDE.md</h1>
+  <p class="prompt-explainer">
+    Marca «Usar en mis reglas» en cualquier apunte o añade reglas aquí. El <code>CLAUDE.md</code> de la derecha
+    se actualiza solo: cópialo, descárgalo o pide a la IA que lo redacte.
+  </p>
+
+  <div class="agent-grid">
+
+    <!-- ══ IZQUIERDA: REGLAS ══ -->
+    <section class="agent-rules" aria-labelledby="rulesHeading">
+      <div class="agent-pane-head">
+        <h2 class="agent-pane-title" id="rulesHeading">Reglas</h2>
+        <span class="agent-pane-meta" id="rulesSummary"></span>
+      </div>
+
+      <form class="rule-add-form" id="addRuleForm">
+        <label class="sr-only" for="inputRuleText">Nueva regla</label>
+        <input type="text" id="inputRuleText" class="input-rule" placeholder="Nueva regla… (p.ej. «Usar const por defecto»)" autocomplete="off" />
+        <label class="sr-only" for="inputRuleTags">Etiquetas</label>
+        <input type="text" id="inputRuleTags" class="input-tags-add" list="tagSuggestions" placeholder="Etiquetas (coma)…" autocomplete="off" />
+        <button type="submit" class="btn-secondary" id="btnAddRule">Añadir</button>
+      </form>
+      <datalist id="tagSuggestions"></datalist>
+
+      <div class="filter-bar" id="filterBar" hidden>
+        <div id="filterTagBtns"></div>
+        <label class="filter-active-toggle">
+          <input type="checkbox" id="filterActiveOnly" />
+          Solo activas
+        </label>
+      </div>
+
+      <div id="rulesList" class="rules-list"></div>
+
+      <div class="agent-tools">
+        <div class="preset-inline">
+          <button class="btn-preset" id="btnExport">↓ Exportar preset</button>
+          <button class="btn-preset" id="btnImportTrigger">↑ Importar preset</button>
+          <input type="file" id="fileImport" accept=".json" style="display:none" />
+        </div>
+
+        <details class="ai-section ai-section--collapsed">
+          <summary class="ai-summary">
+            <span class="btn-generate-icon">{apiKey ? '✦' : '⊘'}</span>
+            Generar reglas desde los apuntes con IA
+          </summary>
+          <p class="ai-section-hint">
+            {apiKey
+              ? 'La IA lee todos los apuntes y propone reglas. Tú eliges cuáles añadir.'
+              : 'Requiere ANTHROPIC_API_KEY en .env'}
+          </p>
+          {apiKey && (
+            <div id="aiPanel">
+              <button class="btn-generate" id="btnGenerate">Analizar apuntes</button>
+              <div id="aiLoading" hidden class="ai-loading">
+                <span class="ai-dot"></span>
+                Analizando los apuntes…
+              </div>
+              <div id="aiResults" hidden class="ai-results-list"></div>
+              <div id="aiActions" hidden class="ai-actions">
+                <button class="btn-copy" id="btnAddSelected">Añadir seleccionadas</button>
+              </div>
+            </div>
+          )}
+        </details>
+      </div>
+    </section>
+
+    <!-- ══ DERECHA: CLAUDE.md ══ -->
+    <section class="agent-output" aria-labelledby="outputHeading">
+      <div class="agent-output-sticky">
+        <div class="agent-pane-head">
+          <h2 class="agent-pane-title" id="outputHeading">CLAUDE.md</h2>
+          <span class="agent-pane-meta">
+            <span id="metaCount"></span>
+            <span id="metaAI" class="prompt-meta-ai" hidden>✦ sintetizado con IA</span>
+          </span>
+        </div>
+
+        <div id="outputEmpty" class="prompt-empty" hidden>
+          Todavía no hay reglas activas. Marca «Usar en mis reglas de código» en un <a href={`/${firstPostId}`}>apunte</a> o añade una a la izquierda.
+        </div>
+
+        <div id="outputStale" class="agent-stale" hidden>
+          Las reglas han cambiado desde la última síntesis. Se muestra la versión literal; vuelve a sintetizar cuando quieras.
+        </div>
+
+        <div class="prompt-output-wrap agent-output-wrap" id="promptContainer"></div>
+
+        <div class="prompt-actions" id="outputActions">
+          <button class="btn-copy" id="btnCopy">Copiar</button>
+          <button class="btn-secondary" id="btnDownload">Descargar CLAUDE.md</button>
+          <button class="btn-secondary" id="btnSynth" disabled={!apiKey} title={apiKey ? '' : 'Requiere ANTHROPIC_API_KEY en .env'}>
+            <span id="synthLabel">{apiKey ? '✦ Sintetizar con IA' : '⊘ Sintetizar con IA'}</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="toast" class="toast"></div>
+</Layout>
+
+<script is:inline define:vars={{ notesText, apiKey }}>
+  const STORAGE_KEY   = 'portulan:rules';
+  const GENERATED_KEY = 'portulan:generated-prompt';
+  const GROUP_ORDER   = ['React', 'Clean Code', 'SOLID'];
+
+  // ── Storage ────────────────────────────────────────────────────────────────
+  function makeId() {
+    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function getRules() {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    return raw.map(r => typeof r === 'string'
+      ? { id: makeId(), text: r, active: true, tags: [], group: '' }
+      : { tags: [], group: '', ...r }
+    );
+  }
+
+  function setRules(rules) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+    updateBadge(rules);
+    updateTagsDatalist(rules);
+  }
+
+  function normalizeTag(t) { return t.trim().toLowerCase(); }
+
+  function updateTagsDatalist(rules) {
+    const dl = document.getElementById('tagSuggestions');
+    if (!dl) return;
+    const allTags = [...new Set((rules ?? getRules()).flatMap(r => r.tags))].sort();
+    dl.innerHTML = allTags.map(t => `<option value="${t}">`).join('');
+  }
+
+  function updateBadge(rules) {
+    const count = (rules ?? getRules()).filter(x => x.active).length;
+    const badge = document.getElementById('ruleCount');
+    const label = document.getElementById('ruleCountLabel');
+    if (badge) { badge.textContent = String(count); badge.classList.toggle('zero', count === 0); }
+    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
+  }
+
+  function showToast(msg, isError = false) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast' + (isError ? ' error' : '');
+    toast.classList.add('visible');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('visible'), 2800);
+  }
+
+  // ── Prompt ─────────────────────────────────────────────────────────────────
+  function activeRules() { return getRules().filter(r => r.active); }
+
+  function groupRules(rules) {
+    const sections = new Map();
+    for (const rule of rules) {
+      const name = rule.group || 'Otras reglas';
+      if (!sections.has(name)) sections.set(name, []);
+      sections.get(name).push(rule.text);
+    }
+    const rank = name => { const i = GROUP_ORDER.indexOf(name); return i === -1 ? GROUP_ORDER.length : i; };
+    return [...sections.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+  }
+
+  function rulesAsList(rules) {
+    return groupRules(rules)
+      .map(([name, texts]) => `## ${name}\n${texts.map(t => `- ${t}`).join('\n')}`)
+      .join('\n\n');
+  }
+
+  function rawText(rules) {
+    return `Al programar en este proyecto, sigue estas reglas.\n\n${rulesAsList(rules)}\n\nAplícalas de forma consistente. Si encuentras un caso no cubierto, consulta antes de adoptar una convención nueva.`;
+  }
+
+  function fingerprint(rules) {
+    return rules.map(r => r.text).sort().join('\u0001');
+  }
+
+  const container    = document.getElementById('promptContainer');
+  const outputEmpty  = document.getElementById('outputEmpty');
+  const outputStale  = document.getElementById('outputStale');
+  const outputActions = document.getElementById('outputActions');
+  const metaCount    = document.getElementById('metaCount');
+  const metaAI       = document.getElementById('metaAI');
+  const btnCopy      = document.getElementById('btnCopy');
+  const btnDownload  = document.getElementById('btnDownload');
+  const btnSynth     = document.getElementById('btnSynth');
+  const synthLabel   = document.getElementById('synthLabel');
+
+  let currentText = '';
+
+  function setOutput(text) {
+    currentText = text;
+    const pre = document.createElement('pre');
+    pre.className = 'prompt-output';
+    pre.textContent = text;
+    container.innerHTML = '';
+    container.appendChild(pre);
+  }
+
+  function refreshPrompt() {
+    const rules = activeRules();
+    const hasRules = rules.length > 0;
+
+    outputEmpty.hidden = hasRules;
+    container.hidden = !hasRules;
+    outputActions.hidden = !hasRules;
+    outputStale.hidden = true;
+    metaAI.hidden = true;
+    metaCount.textContent = hasRules ? `${rules.length} regla${rules.length !== 1 ? 's' : ''}` : '';
+    if (!hasRules) { currentText = ''; return; }
+
+    const saved = JSON.parse(localStorage.getItem(GENERATED_KEY) ?? 'null');
+    if (saved && saved.text) {
+      if (saved.fingerprint === fingerprint(rules)) {
+        metaAI.hidden = false;
+        setOutput(saved.text);
+        return;
+      }
+      outputStale.hidden = false;
+    }
+    setOutput(rawText(rules));
+  }
+
+  function downloadMD(text) {
+    const date = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([`# Reglas de código\n\n${text}\n\n---\nGenerado con Portulan · ${date}\n`], { type: 'text/markdown' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'CLAUDE.md' });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  btnCopy.addEventListener('click', () => {
+    if (!currentText) return;
+    navigator.clipboard.writeText(currentText).then(() => {
+      btnCopy.textContent = 'Copiado ✓';
+      setTimeout(() => { btnCopy.textContent = 'Copiar'; }, 1600);
+    });
+  });
+
+  btnDownload.addEventListener('click', () => { if (currentText) downloadMD(currentText); });
+
+  async function synthesize() {
+    const rules = activeRules();
+    if (!rules.length) return;
+    btnSynth.disabled = true;
+    synthLabel.textContent = 'Sintetizando…';
+    container.innerHTML = '<div class="prompt-generating"><span class="ai-dot"></span> Sintetizando tus reglas…</div>';
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-5-5',
+          max_tokens: 2048,
+          system: `Eres un experto en prompt engineering para asistentes de programación.
+Convierte las reglas de código de un programador en un system prompt natural y coherente para Claude.
+
+El resultado debe:
+- Dirigirse a Claude en segunda persona ("Cuando programes...", "Prioriza...", "Evita...")
+- Ser fluido y natural, no una lista de bullets
+- Capturar el espíritu detrás de las reglas, no repetirlas literalmente
+- Empezar con una frase que capture el estilo general del programador
+- Dedicar un párrafo a cada grupo de reglas (React, Clean Code, SOLID…), en ese orden
+- No perder ninguna regla concreta: las excepciones y los límites numéricos se conservan`,
+          messages: [{
+            role: 'user',
+            content: `Estas son mis reglas de código, por grupos. Conviértelas en el system prompt de mi agente:\n\n${rulesAsList(rules)}`,
+          }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message ?? `Error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.content[0].text.trim();
+      localStorage.setItem(GENERATED_KEY, JSON.stringify({ text, fingerprint: fingerprint(rules), date: new Date().toISOString() }));
+      refreshPrompt();
+      showToast('CLAUDE.md sintetizado con IA.');
+    } catch (err) {
+      refreshPrompt();
+      showToast(`Error: ${err.message}`, true);
+    } finally {
+      btnSynth.disabled = false;
+      synthLabel.textContent = '✦ Sintetizar con IA';
+    }
+  }
+
+  if (apiKey) btnSynth.addEventListener('click', synthesize);
+
+  // ── Rules list ─────────────────────────────────────────────────────────────
+  let currentTag     = null;
+  let showOnlyActive = false;
+
+  function render() {
+    renderFilterBar();
+    renderList();
+    renderSummary();
+    refreshPrompt();
+  }
+
+  function renderSummary() {
+    const rules = getRules();
+    const active = rules.filter(r => r.active).length;
+    document.getElementById('rulesSummary').textContent =
+      rules.length === 0 ? '' : `${active} de ${rules.length} activas`;
+  }
+
+  function renderFilterBar() {
+    const rules   = getRules();
+    const allTags = [...new Set(rules.flatMap(r => r.tags))].sort();
+    const bar     = document.getElementById('filterBar');
+    const btns    = document.getElementById('filterTagBtns');
+
+    bar.hidden = allTags.length === 0;
+    btns.innerHTML = '';
+
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.className   = 'filter-btn' + (!currentTag ? ' active' : '');
+    all.textContent = 'Todas';
+    all.addEventListener('click', () => { currentTag = null; render(); });
+    btns.appendChild(all);
+
+    allTags.forEach(tag => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className   = 'filter-btn' + (currentTag === tag ? ' active' : '');
+      btn.textContent = tag;
+      btn.addEventListener('click', () => { currentTag = currentTag === tag ? null : tag; render(); });
+      btns.appendChild(btn);
+    });
+  }
+
+  function renderList() {
+    const list  = document.getElementById('rulesList');
+    const rules = getRules();
+
+    const visible = rules.filter(r => {
+      if (currentTag && !r.tags.includes(currentTag)) return false;
+      if (showOnlyActive && !r.active) return false;
+      return true;
+    });
+
+    list.innerHTML = '';
+
+    if (rules.length === 0) {
+      list.innerHTML = '<p class="rules-empty">Aún no tienes reglas. Márcalas en los apuntes o añade las tuyas arriba.</p>';
+      return;
+    }
+
+    if (visible.length === 0) {
+      list.innerHTML = '<p class="rules-empty">Ninguna regla coincide con el filtro.</p>';
+      return;
+    }
+
+    const groupsSeen = new Set();
+    groupRules(visible.map(r => ({ ...r, active: true }))).forEach(([name]) => groupsSeen.add(name));
+
+    for (const [groupName] of groupRules(visible)) {
+      const heading = document.createElement('div');
+      heading.className = 'rules-group-title';
+      heading.textContent = groupName;
+      list.appendChild(heading);
+
+      visible.filter(r => (r.group || 'Otras reglas') === groupName).forEach(rule => {
+        list.appendChild(renderRule(rule));
+      });
+    }
+  }
+
+  function renderRule(rule) {
+    const item = document.createElement('div');
+    item.className = 'rule-item' + (!rule.active ? ' inactive' : '');
+    item.dataset.id = rule.id;
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'rule-toggle' + (rule.active ? ' on' : '');
+    toggle.setAttribute('aria-label', rule.active ? 'Desactivar regla' : 'Activar regla');
+    toggle.setAttribute('aria-pressed', String(rule.active));
+    toggle.addEventListener('click', () => {
+      const all = getRules();
+      const i   = all.findIndex(r => r.id === rule.id);
+      if (i >= 0) { all[i].active = !all[i].active; setRules(all); render(); }
+    });
+
+    const body = document.createElement('div');
+    body.className = 'rule-body';
+
+    const text = document.createElement('span');
+    text.className   = 'rule-text';
+    text.textContent = rule.text;
+
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'rule-tags-row';
+
+    rule.tags.forEach(tag => {
+      const chip = document.createElement('span');
+      chip.className = 'rule-tag';
+      const label = document.createElement('span');
+      label.textContent = tag;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className   = 'tag-del';
+      del.textContent = '×';
+      del.setAttribute('aria-label', `Quitar etiqueta ${tag}`);
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        const all = getRules();
+        const i   = all.findIndex(r => r.id === rule.id);
+        if (i >= 0) { all[i].tags = all[i].tags.filter(t => t !== tag); setRules(all); render(); }
+      });
+      chip.appendChild(label);
+      chip.appendChild(del);
+      tagsRow.appendChild(chip);
+    });
+
+    const tagInput = document.createElement('input');
+    tagInput.className   = 'input-add-tag';
+    tagInput.placeholder = '+ etiqueta';
+    tagInput.setAttribute('aria-label', 'Añadir etiqueta');
+    tagInput.setAttribute('list', 'tagSuggestions');
+    tagInput.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const tag = normalizeTag(tagInput.value);
+      if (!tag) return;
+      const all = getRules();
+      const i   = all.findIndex(r => r.id === rule.id);
+      if (i >= 0 && !all[i].tags.includes(tag)) { all[i].tags.push(tag); setRules(all); render(); }
+      tagInput.value = '';
+    });
+
+    tagsRow.appendChild(tagInput);
+    body.appendChild(text);
+    body.appendChild(tagsRow);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className   = 'btn-rule-delete';
+    del.textContent = '×';
+    del.setAttribute('aria-label', 'Eliminar regla');
+    del.addEventListener('click', () => { setRules(getRules().filter(r => r.id !== rule.id)); render(); });
+
+    item.appendChild(toggle);
+    item.appendChild(body);
+    item.appendChild(del);
+    return item;
+  }
+
+  document.getElementById('filterActiveOnly').addEventListener('change', e => {
+    showOnlyActive = e.target.checked;
+    render();
+  });
+
+  // ── Add by hand ────────────────────────────────────────────────────────────
+  document.getElementById('addRuleForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const textInput = document.getElementById('inputRuleText');
+    const tagsInput = document.getElementById('inputRuleTags');
+    const text = textInput.value.trim();
+    if (!text) return;
+    const current = getRules();
+    if (current.some(r => r.text === text)) { showToast('Esa regla ya existe.', true); return; }
+    const tags = tagsInput.value.split(',').map(normalizeTag).filter(Boolean);
+    setRules([...current, { id: makeId(), text, active: true, tags, group: '' }]);
+    textInput.value = '';
+    tagsInput.value = '';
+    render();
+  });
+
+  // ── Generate rules from notes with AI ──────────────────────────────────────
+  const btnGenerate    = document.getElementById('btnGenerate');
+  const aiLoading      = document.getElementById('aiLoading');
+  const aiResultsList  = document.getElementById('aiResults');
+  const aiActions      = document.getElementById('aiActions');
+  const btnAddSelected = document.getElementById('btnAddSelected');
+
+  if (btnGenerate) btnGenerate.addEventListener('click', callAI);
+
+  async function callAI() {
+    aiLoading.hidden = false; aiResultsList.hidden = true; aiActions.hidden = true;
+    aiResultsList.innerHTML = '';
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-5-5',
+          max_tokens: 1024,
+          system: `Eres un asistente que ayuda a programadores a definir su estilo de código personal.
+Analiza los apuntes y extrae entre 5 y 10 reglas concretas que reflejen cómo esta persona prefiere programar.
+Criterios: instrucción directa, verbo de acción (Usar/Evitar/Nunca/Siempre/Preferir), máximo 2 frases.
+Devuelve SOLO las reglas, una por línea, sin numeración, sin guiones.`,
+          messages: [{ role: 'user', content: `APUNTES:\n\n${notesText}` }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message ?? `Error ${res.status}`);
+      }
+
+      const data  = await res.json();
+      const lines = data.content[0].text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+
+      aiLoading.hidden = true; aiResultsList.hidden = false; aiActions.hidden = false;
+
+      lines.forEach(rule => {
+        const item = document.createElement('label');
+        item.className = 'rule-suggestion-item';
+        const cb  = Object.assign(document.createElement('input'), { type: 'checkbox', checked: true });
+        const txt = Object.assign(document.createElement('span'), { className: 'rule-text', textContent: rule });
+        item.appendChild(cb);
+        item.appendChild(txt);
+        aiResultsList.appendChild(item);
+      });
+    } catch (err) {
+      aiLoading.hidden = true; aiResultsList.hidden = false;
+      aiResultsList.innerHTML = `<p class="ai-error">Error: ${err.message}</p>`;
+    }
+  }
+
+  if (btnAddSelected) {
+    btnAddSelected.addEventListener('click', () => {
+      const selected = [...aiResultsList.querySelectorAll('input:checked')]
+        .map(cb => cb.closest('label').querySelector('.rule-text').textContent.trim())
+        .filter(Boolean);
+      if (!selected.length) { showToast('No hay reglas seleccionadas.', true); return; }
+
+      const current = getRules();
+      const newOnes = selected
+        .filter(t => !current.some(r => r.text === t))
+        .map(t => ({ id: makeId(), text: t, active: true, tags: [], group: '' }));
+
+      setRules([...current, ...newOnes]);
+      aiResultsList.innerHTML = '';
+      aiResultsList.hidden = true; aiActions.hidden = true;
+      render();
+      showToast(`${newOnes.length} regla(s) añadidas.`);
+    });
+  }
+
+  // ── Export / import ────────────────────────────────────────────────────────
+  document.getElementById('btnExport').addEventListener('click', () => {
+    const rules = getRules();
+    if (!rules.length) { showToast('No hay reglas para exportar.', true); return; }
+    const blob = new Blob([JSON.stringify({
+      name: 'Mi preset',
+      exported: new Date().toISOString().split('T')[0],
+      rules: rules.map(r => ({ text: r.text, active: r.active, tags: r.tags, group: r.group || '' })),
+    }, null, 2)], { type: 'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'portulan-preset.json' });
+    a.click(); URL.revokeObjectURL(a.href);
+    showToast('Preset exportado como portulan-preset.json');
+  });
+
+  document.getElementById('btnImportTrigger').addEventListener('click', () => {
+    document.getElementById('fileImport').click();
+  });
+
+  document.getElementById('fileImport').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data  = JSON.parse(ev.target.result);
+        const items = Array.isArray(data) ? data : (data.rules ?? []);
+        const valid = items
+          .filter(r => typeof r === 'string' || (r && r.text))
+          .map(r => typeof r === 'string'
+            ? { id: makeId(), text: r, active: true, tags: [], group: '' }
+            : { id: makeId(), text: r.text, active: r.active ?? true, tags: (r.tags ?? []).map(normalizeTag), group: r.group || '' }
+          );
+        if (!valid.length) { showToast('No se encontraron reglas en el archivo.', true); return; }
+        const current = getRules();
+        const newOnes = valid.filter(r => !current.some(x => x.text === r.text));
+        setRules([...current, ...newOnes]);
+        render();
+        showToast(`${newOnes.length} regla(s) importadas.`);
+      } catch { showToast('Error al leer el archivo JSON.', true); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  render();
+  updateTagsDatalist();
+</script>

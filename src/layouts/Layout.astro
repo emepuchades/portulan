@@ -5,11 +5,11 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   currentId?: string;
-  isPrompt?: boolean;
-  isRules?: boolean;
+  isAgent?: boolean;
+  isWide?: boolean;
 }
 
-const { title = 'Portulan', currentId, isPrompt = false, isRules = false } = Astro.props;
+const { title = 'Portulan', currentId, isAgent = false, isWide = false } = Astro.props;
 
 const allPosts = await getCollection('posts');
 allPosts.sort((a, b) => a.data.order - b.data.order);
@@ -43,6 +43,17 @@ for (const post of allPosts) {
     </div>
     <div class="brand-sub">cómo programo · para Claude</div>
 
+    <!-- MI AGENTE -->
+    <a class:list={['agent-card', { active: isAgent }]} href="/agente">
+      <span class="agent-card-eyebrow">Mi agente</span>
+      <span class="agent-card-title">Crear CLAUDE.md</span>
+      <span class="agent-card-meta">
+        <span class="agent-count zero" id="ruleCount">0</span>
+        <span id="ruleCountLabel">reglas activas</span>
+        <span class="agent-card-arrow" aria-hidden="true">→</span>
+      </span>
+    </a>
+
     <!-- APUNTES -->
     <div class="nav-section-label">Apuntes</div>
 
@@ -60,41 +71,10 @@ for (const post of allPosts) {
       </div>
     ))}
 
-    <!-- MI AGENTE -->
-    <div class="nav-section-label nav-section-label--spaced">Mi agente</div>
-
-    <div class="nav-group">
-      <a class:list={['nav-link nav-link--agent', { active: isRules }]} href="/rules">
-        <span class="nav-agent-icon">⊞</span>
-        Reglas
-        <span class="nav-agent-count zero" id="ruleCount">0</span>
-      </a>
-      <a class:list={['nav-link nav-link--agent', { active: isPrompt }]} href="/prompt">
-        <span class="nav-agent-icon">¶</span>
-        Prompt
-      </a>
-    </div>
-
-    <!-- FLUJO -->
-    <div class="sidebar-flow">
-      <div class="sidebar-flow-step">
-        <span class="flow-num">1</span>
-        <span class="flow-text">En cada <strong>apunte</strong>, genera reglas con IA o márcalas a mano</span>
-      </div>
-      <div class="sidebar-flow-step">
-        <span class="flow-num">2</span>
-        <span class="flow-text">En <strong>Reglas</strong>, activa las que aplican ahora</span>
-      </div>
-      <div class="sidebar-flow-step">
-        <span class="flow-num">3</span>
-        <span class="flow-text">En <strong>Prompt</strong>, sintetiza con IA y descarga tu CLAUDE.md</span>
-      </div>
-    </div>
-
   </div>
 </nav>
 
-<main class="main">
+<main class:list={['main', { 'main--wide': isWide }]}>
   <slot />
 </main>
 
@@ -107,11 +87,13 @@ for (const post of allPosts) {
   }
 
   const badge = document.getElementById('ruleCount');
+  const badgeLabel = document.getElementById('ruleCountLabel');
   if (badge) {
     const raw = JSON.parse(localStorage.getItem('portulan:rules') ?? '[]');
     const count = raw.filter((r: any) => typeof r === 'string' || r.active).length;
     badge.textContent = String(count);
     badge.classList.toggle('zero', count === 0);
+    if (badgeLabel) badgeLabel.textContent = count === 1 ? 'regla activa' : 'reglas activas';
   }
 </script>
 
