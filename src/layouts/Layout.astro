@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import { getNoteRules } from '../utils/noteRules';
 import '../styles/global.css';
 
 interface Props {
@@ -20,6 +21,8 @@ for (const post of allPosts) {
   if (!groups[g]) groups[g] = [];
   groups[g].push(post);
 }
+
+const noteRuleTexts = (await getNoteRules()).map(rule => rule.text);
 ---
 
 <!DOCTYPE html>
@@ -78,23 +81,35 @@ for (const post of allPosts) {
   <slot />
 </main>
 
-<script>
-  // Migrate storage key from old name
+<script is:inline define:vars={{ noteRuleTexts }}>
+  window.__portulanNoteRules = noteRuleTexts;
+
   const _old = localStorage.getItem('cuaderno:rules');
   if (_old && !localStorage.getItem('portulan:rules')) {
     localStorage.setItem('portulan:rules', _old);
     localStorage.removeItem('cuaderno:rules');
   }
 
-  const badge = document.getElementById('ruleCount');
-  const badgeLabel = document.getElementById('ruleCountLabel');
-  if (badge) {
+  window.__portulanActiveCount = function () {
     const raw = JSON.parse(localStorage.getItem('portulan:rules') ?? '[]');
-    const count = raw.filter((r: any) => typeof r === 'string' || r.active).length;
+    const stored = new Map(raw.map(r => typeof r === 'string' ? [r, { active: true }] : [r.text, r]));
+    const noteSet = new Set(noteRuleTexts);
+    const notesActive = noteRuleTexts.filter(text => { const entry = stored.get(text); return entry ? entry.active : true; }).length;
+    const customActive = [...stored.entries()].filter(([text, entry]) => !noteSet.has(text) && entry.active).length;
+    return notesActive + customActive;
+  };
+
+  window.__portulanPaintBadge = function () {
+    const badge = document.getElementById('ruleCount');
+    const label = document.getElementById('ruleCountLabel');
+    if (!badge) return;
+    const count = window.__portulanActiveCount();
     badge.textContent = String(count);
     badge.classList.toggle('zero', count === 0);
-    if (badgeLabel) badgeLabel.textContent = count === 1 ? 'regla activa' : 'reglas activas';
-  }
+    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
+  };
+
+  window.__portulanPaintBadge();
 </script>
 
 </body>

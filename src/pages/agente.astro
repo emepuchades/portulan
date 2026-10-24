@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { getCollection } from 'astro:content';
+import { getNoteRules } from '../utils/noteRules';
 
 const posts = await getCollection('posts');
 posts.sort((a, b) => a.data.order - b.data.order);
@@ -11,14 +12,15 @@ const notesText = posts
   .join('\n\n---\n\n');
 
 const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
+const noteRules = await getNoteRules();
 ---
 
 <Layout title="Mi agente · Portulan" isAgent={true} isWide={true}>
   <div class="topic-eyebrow">MI AGENTE</div>
   <h1 class="topic-title">Tus reglas, tu CLAUDE.md</h1>
   <p class="prompt-explainer">
-    Marca «Usar en mis reglas» en cualquier apunte o añade reglas aquí. El <code>CLAUDE.md</code> de la derecha
-    se actualiza solo: cópialo, descárgalo o pide a la IA que lo redacte.
+    Todas las reglas de los apuntes entran de serie. Apaga las que no quieras, añade las tuyas, y el
+    <code>CLAUDE.md</code> de la derecha se actualiza solo: cópialo, descárgalo o pide a la IA que lo redacte.
   </p>
 
   <div class="agent-grid">
@@ -95,7 +97,7 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
         </div>
 
         <div id="outputEmpty" class="prompt-empty" hidden>
-          Todavía no hay reglas activas. Marca «Usar en mis reglas de código» en un <a href={`/${firstPostId}`}>apunte</a> o añade una a la izquierda.
+          No queda ninguna regla activa. Enciende alguna a la izquierda, añade una tuya o vuelve a marcarla en su <a href={`/${firstPostId}`}>apunte</a>.
         </div>
 
         <div id="outputStale" class="agent-stale" hidden>
@@ -119,10 +121,25 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
   <div id="toast" class="toast"></div>
 </Layout>
 
-<script is:inline define:vars={{ notesText, apiKey }}>
+<script is:inline define:vars={{ notesText, apiKey, noteRules }}>
   const STORAGE_KEY   = 'portulan:rules';
   const GENERATED_KEY = 'portulan:generated-prompt';
   const GROUP_ORDER   = ['React', 'Clean Code', 'SOLID'];
+  const NOTE_TEXTS    = new Set(noteRules.map(r => r.text));
+
+  function isNoteRule(rule) { return NOTE_TEXTS.has(rule.text); }
+
+  function seedNoteRules() {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    const byText = new Map(raw.map(r => typeof r === 'string' ? [r, { id: makeId(), text: r, active: true, tags: [], group: '' }] : [r.text, r]));
+    for (const note of noteRules) {
+      const entry = byText.get(note.text);
+      if (!entry) byText.set(note.text, { id: makeId(), text: note.text, active: true, tags: [], group: note.group });
+      else if (!entry.group) entry.group = note.group;
+    }
+    const ordered = [...noteRules.map(n => byText.get(n.text)), ...[...byText.values()].filter(r => !NOTE_TEXTS.has(r.text))];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ordered));
+  }
 
   // ── Storage ────────────────────────────────────────────────────────────────
   function makeId() {
@@ -152,12 +169,8 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
     dl.innerHTML = allTags.map(t => `<option value="${t}">`).join('');
   }
 
-  function updateBadge(rules) {
-    const count = (rules ?? getRules()).filter(x => x.active).length;
-    const badge = document.getElementById('ruleCount');
-    const label = document.getElementById('ruleCountLabel');
-    if (badge) { badge.textContent = String(count); badge.classList.toggle('zero', count === 0); }
-    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
+  function updateBadge() {
+    if (window.__portulanPaintBadge) window.__portulanPaintBadge();
   }
 
   function showToast(msg, isError = false) {
@@ -375,7 +388,7 @@ El resultado debe:
     list.innerHTML = '';
 
     if (rules.length === 0) {
-      list.innerHTML = '<p class="rules-empty">Aún no tienes reglas. Márcalas en los apuntes o añade las tuyas arriba.</p>';
+      list.innerHTML = '<p class="rules-empty">No hay reglas. Añade las tuyas arriba o crea apuntes con reglas.</p>';
       return;
     }
 
@@ -466,16 +479,24 @@ El resultado debe:
     body.appendChild(text);
     body.appendChild(tagsRow);
 
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className   = 'btn-rule-delete';
-    del.textContent = '×';
-    del.setAttribute('aria-label', 'Eliminar regla');
-    del.addEventListener('click', () => { setRules(getRules().filter(r => r.id !== rule.id)); render(); });
-
     item.appendChild(toggle);
     item.appendChild(body);
-    item.appendChild(del);
+
+    if (isNoteRule(rule)) {
+      const origin = document.createElement('span');
+      origin.className = 'rule-origin';
+      origin.textContent = 'apunte';
+      origin.title = 'Viene de un apunte: se puede apagar, no borrar';
+      item.appendChild(origin);
+    } else {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className   = 'btn-rule-delete';
+      del.textContent = '×';
+      del.setAttribute('aria-label', 'Eliminar regla');
+      del.addEventListener('click', () => { setRules(getRules().filter(r => r.id !== rule.id)); render(); });
+      item.appendChild(del);
+    }
     return item;
   }
 
@@ -622,6 +643,7 @@ Devuelve SOLO las reglas, una por línea, sin numeración, sin guiones.`,
     e.target.value = '';
   });
 
+  seedNoteRules();
   render();
   updateTagsDatalist();
 </script>

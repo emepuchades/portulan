@@ -53,9 +53,9 @@ flowchart LR
     style E fill:#2b2a28,color:#fff,stroke:none
 ```
 
-1. **Lees** el apunte de un tema
-2. **Marcas** "Usar en mis reglas de código" en los conceptos que quieres que aplique la IA
-3. **En «Mi agente»** el `CLAUDE.md` aparece al instante, por secciones (React, Clean Code, SOLID). Ahí puedes añadir reglas propias, activarlas o desactivarlas y etiquetarlas
+1. **Lees** el apunte de un tema. Todas sus reglas entran de serie en tu prompt
+2. **Desmarcas** "Usar en mis reglas de código" en lo que no vaya contigo; no hace falta marcar nada para empezar
+3. **En «Mi agente»** el `CLAUDE.md` aparece al instante, por secciones (React, Clean Code, SOLID). Ahí puedes apagar reglas, añadir las tuyas y etiquetarlas
 4. **Copias o descargas** el resultado, o pides a la IA (con tu API key) que lo redacte como un prompt fluido en vez de una lista
 
 ![Cada concepto termina con una casilla «Usar en mis reglas de código»: al marcarla, la regla pasa a tu prompt](assets/captura-regla.webp)
@@ -66,7 +66,7 @@ flowchart LR
 
 ## Qué trae de serie
 
-Catorce apuntes y 56 reglas listas para marcar. Nada de «qué es React»: lo que se pide en una revisión de código de un equipo grande.
+Catorce apuntes y 56 reglas que entran de serie en tu CLAUDE.md. Nada de «qué es React»: lo que se pide en una revisión de código de un equipo grande.
 
 | Grupo | Apuntes |
 |---|---|
@@ -74,7 +74,7 @@ Catorce apuntes y 56 reglas listas para marcar. Nada de «qué es React»: lo qu
 | **Clean Code** | Nombres · Funciones pequeñas con un solo nivel · Comentarios y documentación · Formato, tamaño y orden |
 | **SOLID** | Los cinco principios aplicados a componentes de React, con ejemplo mal / bien en cada uno |
 
-Cada regla está escrita para el prompt: imperativa, una sola decisión, comprobable al leer un diff, con la excepción dentro cuando la hay. Al marcarlas, el `CLAUDE.md` sale por secciones (React, Clean Code, SOLID). Borra las que no sean tuyas y añade las que te falten: para eso es un fork.
+Cada regla está escrita para el prompt: imperativa, una sola decisión, comprobable al leer un diff, con la excepción dentro cuando la hay. El `CLAUDE.md` sale por secciones (React, Clean Code, SOLID). Apaga las que no sean tuyas y añade las que te falten: para eso es un fork.
 
 <br />
 

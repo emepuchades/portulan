@@ -82,7 +82,7 @@ body {
   font-family:    var(--font-mono);
   font-size:      11px;
   color:          var(--text-faint);
-  margin-bottom:  32px;
+  margin-bottom:  20px;
   letter-spacing: 0.04em;
 }
 
@@ -1096,8 +1096,8 @@ pre.astro-code code {
 /* ===== AGENT CARD (sidebar) ===== */
 .agent-card {
   display:        block;
-  margin:         18px 0 28px;
-  padding:        14px 16px;
+  margin:         0 0 28px;
+  padding:        12px 14px;
   border:         1px solid var(--border);
   border-radius:  12px;
   background:     var(--bg-card);
@@ -1244,6 +1244,16 @@ pre.astro-code code {
 }
 
 .rules-group-title:first-child { margin-top: 0; }
+
+.rule-origin {
+  align-self:     center;
+  font-family:    var(--font-mono);
+  font-size:      10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color:          var(--text-faint);
+  flex-shrink:    0;
+}
 
 .ai-section--collapsed { padding: 0; }
 

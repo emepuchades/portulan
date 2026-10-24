@@ -26,17 +26,13 @@ const { rule } = Astro.props;
   }
 
   function isActive(rules: any[], text: string): boolean {
-    return rules.some(r =>
-      typeof r === 'string' ? r === text : (r.text === text && r.active)
-    );
+    const entry = rules.find(r => typeof r === 'string' ? r === text : r.text === text);
+    if (entry === undefined) return true;
+    return typeof entry === 'string' ? true : entry.active;
   }
 
-  function updateBadge(rules: any[]) {
-    const badge = document.getElementById('ruleCount');
-    if (!badge) return;
-    const count = rules.filter(r => typeof r === 'string' || r.active).length;
-    badge.textContent = String(count);
-    badge.classList.toggle('zero', count === 0);
+  function updateBadge(_rules: any[]) {
+    (window as any).__portulanPaintBadge?.();
   }
 
   document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
@@ -62,9 +58,10 @@ const { rule } = Astro.props;
           updated = [...current, { id: makeId(), text: rule, active: true, tags: [], group }];
         }
       } else {
-        updated = current.map(r =>
-          typeof r !== 'string' && r.text === rule ? { ...r, active: false } : r
-        );
+        const exists = current.some(r => typeof r !== 'string' && r.text === rule);
+        updated = exists
+          ? current.map(r => typeof r !== 'string' && r.text === rule ? { ...r, active: false } : r)
+          : [...current, { id: makeId(), text: rule, active: false, tags: [], group }];
       }
 
       setRules(updated);
