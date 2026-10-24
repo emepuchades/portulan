@@ -15,6 +15,8 @@
 
 ---
 
+![Portulan: un apunte de React con el sidebar de temas y, abajo, las secciones Reglas y Prompt de tu agente](assets/captura-apunte.webp)
+
 > *Un portulano es una carta náutica medieval: trazada por quien ya navegó esas aguas, para no perderse dos veces.*
 > **Portulan es tu carta de código.**
 
@@ -54,6 +56,8 @@ flowchart LR
 3. **El Forge** usa tu API key para generar un prompt sintetizado — no una lista de bullet points, sino un sistema de pensamiento coherente
 4. **Copias** el resultado a tu `CLAUDE.md`, `.cursorrules`, o como system prompt
 
+![Cada concepto termina con una casilla «Usar en mis reglas de código»: al marcarla, la regla pasa a tu prompt](assets/captura-regla.webp)
+
 <br />
 
 ## Features
@@ -74,6 +78,7 @@ flowchart LR
 | 📄 **Formatos de export** | El mismo set de reglas exportado como `CLAUDE.md`, `.cursorrules`, system prompt o markdown plano según dónde lo vayas a usar. | Próximo |
 | 🧭 **Modos de contexto** | Las mismas reglas producen prompts distintos según el momento: *Nuevo proyecto*, *Code review*, *Refactor*, *Daily use*. | Planificado |
 | ✍️ **Reglas custom en UI** | Añade tus propias reglas desde la interfaz sin tocar código. Se guardan en `localStorage`. | Planificado |
+| 🧩 **Skill de Claude Code** | El paso automático. En vez de marcar reglas a mano, la skill lee tu repositorio, deduce cómo estructuras el código, qué componentes y tests reutilizas, y deja al agente educado. Portulan es la versión manual; la skill, la automática. | En desarrollo |
 | 🔗 **Perfiles exportables** | Exporta e importa tu set de reglas como JSON. Para compartir con tu equipo o hacer backup de tu configuración. | Planificado |
 
 <br />
@@ -173,6 +178,12 @@ Borra el archivo `.mdx` de `src/content/posts/`. Desaparece del sidebar automát
 # O desde la CLI de Vercel
 npx vercel
 ```
+
+<br />
+
+## Licencia
+
+[MIT](LICENSE) · Hecho por [María Puchades](https://github.com/emepuchades)
 
 <br />
 
