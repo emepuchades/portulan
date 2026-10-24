@@ -54,13 +54,13 @@ flowchart LR
 ```
 
 1. **Lees** el apunte de un tema. Todas sus reglas entran de serie en tu prompt
-2. **Desmarcas** "Usar en mis reglas de código" en lo que no vaya contigo; no hace falta marcar nada para empezar
-3. **En «Mi agente»** el `CLAUDE.md` aparece al instante, por secciones (React, Clean Code, SOLID). Ahí puedes apagar reglas, añadir las tuyas y etiquetarlas
+2. **Apagas** lo que no vaya contigo: el ojo de cada apunte en el menú apaga el apunte entero; la casilla de cada concepto, una regla suelta. No hace falta marcar nada para empezar
+3. **En «Mi agente»** el `CLAUDE.md` aparece al instante, por secciones (React, Clean Code, SOLID). A la izquierda, tus reglas propias y los apuntes plegados con su interruptor y su «4 de 5»
 4. **Copias o descargas** el resultado, o pides a la IA (con tu API key) que lo redacte como un prompt fluido en vez de una lista
 
 ![Cada concepto termina con una casilla «Usar en mis reglas de código»: al marcarla, la regla pasa a tu prompt](assets/captura-regla.webp)
 
-![Mi agente: a la izquierda tus reglas por grupo, con interruptor y etiquetas; a la derecha el CLAUDE.md que se actualiza con cada cambio](assets/captura-agente.webp)
+![Mi agente: a la izquierda tus reglas y los apuntes plegados con interruptor; desplegado, las reglas de un apunte con su nombre corto; a la derecha el CLAUDE.md que se actualiza con cada cambio](assets/captura-agente.webp)
 
 <br />
 
@@ -84,7 +84,7 @@ Cada regla está escrita para el prompt: imperativa, una sola decisión, comprob
 
 - **Apuntes en MDX** — markdown limpio con componentes Astro reutilizables para reglas, notas y código
 - **Sidebar dinámico** — se genera automáticamente al crear un nuevo archivo `.mdx`; no hay que configurar nada
-- **Mi agente** — reglas y `CLAUDE.md` en la misma pantalla: la lista a la izquierda, el prompt en vivo a la derecha; todo persiste en `localStorage`
+- **Mi agente** — apuntes y reglas a la izquierda, `CLAUDE.md` en vivo a la derecha; un ojo en el menú apaga un apunte entero; todo persiste en `localStorage`
 - **Syntax highlighting** — Shiki con Material Theme Palenight en build time, sin JavaScript extra
 - **Sin servidor** — 100% estático, desplegable en Vercel o Netlify en segundos
 

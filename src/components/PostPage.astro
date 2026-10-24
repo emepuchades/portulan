@@ -62,28 +62,9 @@ const postGroup = post.data.group;
 </Layout>
 
 <script is:inline define:vars={{ apiKey, postBody, postTitle, postGroup }}>
-  const STORAGE_KEY = 'portulan:rules';
-
-  function makeId() {
-    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  }
-
-  function getRules() {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-    return raw.map(r => typeof r === 'string'
-      ? { id: makeId(), text: r, active: true, tags: [], group: '' }
-      : r
-    );
-  }
-
-  function setRules(rules) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
-    const count = rules.filter(r => r.active).length;
-    const badge = document.getElementById('ruleCount');
-    const label = document.getElementById('ruleCountLabel');
-    if (badge) { badge.textContent = String(count); badge.classList.toggle('zero', count === 0); }
-    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
-  }
+  const makeId   = () => window.portulan.makeId();
+  const getRules = () => window.portulan.getRules();
+  const setRules = rules => window.portulan.setRules(rules);
 
   const btnGenerate    = document.getElementById('btnGenerate');
   const aiPanel        = document.getElementById('aiPanel');

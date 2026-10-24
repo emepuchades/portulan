@@ -11,62 +11,24 @@ const { rule } = Astro.props;
 </label>
 
 <script>
-  const STORAGE_KEY = 'portulan:rules';
+  function store() { return (window as any).portulan; }
 
-  function makeId() {
-    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  }
-
-  function getRules(): any[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-  }
-
-  function setRules(rules: any[]) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
-  }
-
-  function isActive(rules: any[], text: string): boolean {
-    const entry = rules.find(r => typeof r === 'string' ? r === text : r.text === text);
-    if (entry === undefined) return true;
-    return typeof entry === 'string' ? true : entry.active;
-  }
-
-  function updateBadge(_rules: any[]) {
-    (window as any).__portulanPaintBadge?.();
+  function paint() {
+    document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
+      const checkbox = label.querySelector<HTMLInputElement>('.rule-checkbox')!;
+      const on = store().isActive(label.dataset.rule!);
+      checkbox.checked = on;
+      label.classList.toggle('checked', on);
+    });
   }
 
   document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
-    const rule    = label.dataset.rule!;
-    const group   = label.closest<HTMLElement>('[data-post-group]')?.dataset.postGroup ?? '';
     const checkbox = label.querySelector<HTMLInputElement>('.rule-checkbox')!;
-
-    const saved = getRules();
-    checkbox.checked = isActive(saved, rule);
-    label.classList.toggle('checked', checkbox.checked);
-
     checkbox.addEventListener('change', () => {
-      const current = getRules();
-      let updated: any[];
-
-      if (checkbox.checked) {
-        const existing = current.find(r => typeof r !== 'string' && r.text === rule);
-        if (existing) {
-          updated = current.map(r =>
-            typeof r !== 'string' && r.text === rule ? { ...r, active: true, group: r.group || group } : r
-          );
-        } else {
-          updated = [...current, { id: makeId(), text: rule, active: true, tags: [], group }];
-        }
-      } else {
-        const exists = current.some(r => typeof r !== 'string' && r.text === rule);
-        updated = exists
-          ? current.map(r => typeof r !== 'string' && r.text === rule ? { ...r, active: false } : r)
-          : [...current, { id: makeId(), text: rule, active: false, tags: [], group }];
-      }
-
-      setRules(updated);
-      updateBadge(updated);
-      label.classList.toggle('checked', checkbox.checked);
+      store().setActive([label.dataset.rule!], checkbox.checked);
     });
   });
+
+  paint();
+  document.addEventListener('portulan:rules-changed', paint);
 </script>

@@ -13,59 +13,90 @@ const notesText = posts
 
 const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
 const noteRules = await getNoteRules();
+
+const notesByGroup: { group: string; notes: { id: string; title: string; rules: typeof noteRules }[] }[] = [];
+for (const post of posts) {
+  const rules = noteRules.filter(r => r.postId === post.id);
+  if (!rules.length) continue;
+  let bucket = notesByGroup.find(b => b.group === post.data.group);
+  if (!bucket) { bucket = { group: post.data.group, notes: [] }; notesByGroup.push(bucket); }
+  bucket.notes.push({ id: post.id, title: post.data.title, rules });
+}
 ---
 
 <Layout title="Mi agente · Portulan" isAgent={true} isWide={true}>
   <div class="topic-eyebrow">MI AGENTE</div>
   <h1 class="topic-title">Tus reglas, tu CLAUDE.md</h1>
   <p class="prompt-explainer">
-    Todas las reglas de los apuntes entran de serie. Apaga las que no quieras, añade las tuyas, y el
-    <code>CLAUDE.md</code> de la derecha se actualiza solo: cópialo, descárgalo o pide a la IA que lo redacte.
+    Las reglas de los apuntes entran de serie. Apaga un apunte entero o una regla suelta, añade las tuyas,
+    y el <code>CLAUDE.md</code> de la derecha se actualiza solo.
   </p>
 
   <div class="agent-grid">
 
-    <!-- ══ IZQUIERDA: REGLAS ══ -->
+    <!-- ══ IZQUIERDA ══ -->
     <section class="agent-rules" aria-labelledby="rulesHeading">
+
       <div class="agent-pane-head">
-        <h2 class="agent-pane-title" id="rulesHeading">Reglas</h2>
-        <span class="agent-pane-meta" id="rulesSummary"></span>
+        <h2 class="agent-pane-title" id="rulesHeading">Tus reglas</h2>
+        <span class="agent-pane-meta" id="customSummary"></span>
       </div>
 
-      <form class="rule-add-form" id="addRuleForm">
+      <form class="rule-add-form rule-add-form--compact" id="addRuleForm">
         <label class="sr-only" for="inputRuleText">Nueva regla</label>
-        <input type="text" id="inputRuleText" class="input-rule" placeholder="Nueva regla… (p.ej. «Usar const por defecto»)" autocomplete="off" />
-        <label class="sr-only" for="inputRuleTags">Etiquetas</label>
-        <input type="text" id="inputRuleTags" class="input-tags-add" list="tagSuggestions" placeholder="Etiquetas (coma)…" autocomplete="off" />
+        <input type="text" id="inputRuleText" class="input-rule" placeholder="Una regla tuya, en imperativo… (p.ej. «Usar const por defecto»)" autocomplete="off" />
         <button type="submit" class="btn-secondary" id="btnAddRule">Añadir</button>
       </form>
-      <datalist id="tagSuggestions"></datalist>
 
-      <div class="filter-bar" id="filterBar" hidden>
-        <div id="filterTagBtns"></div>
-        <label class="filter-active-toggle">
-          <input type="checkbox" id="filterActiveOnly" />
-          Solo activas
-        </label>
+      <div id="customList" class="custom-list"></div>
+
+      <div class="agent-pane-head agent-pane-head--spaced">
+        <h2 class="agent-pane-title">Apuntes</h2>
+        <span class="agent-pane-meta" id="notesSummary"></span>
       </div>
 
-      <div id="rulesList" class="rules-list"></div>
+      <div class="notes-list">
+        {notesByGroup.map(bucket => (
+          <div class="notes-group">
+            <div class="rules-group-title">{bucket.group}</div>
+            {bucket.notes.map(note => (
+              <details class="note-row" data-note={note.id}>
+                <summary class="note-summary">
+                  <button type="button" class="rule-toggle note-toggle" data-toggle-note={note.id} aria-label={`Reglas de «${note.title}»`}></button>
+                  <span class="note-title">{note.title}</span>
+                  <span class="note-count" data-count-note={note.id}></span>
+                  <span class="note-chevron" aria-hidden="true">›</span>
+                </summary>
+                <ul class="note-rules">
+                  {note.rules.map(rule => (
+                    <li class="note-rule" data-rule-text={rule.text}>
+                      <button type="button" class="rule-toggle rule-toggle--sm" data-toggle-rule={rule.text} aria-label={rule.label}></button>
+                      <span class="note-rule-label" title={rule.text}>{rule.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
+        ))}
+      </div>
 
       <div class="agent-tools">
         <div class="preset-inline">
           <button class="btn-preset" id="btnExport">↓ Exportar preset</button>
           <button class="btn-preset" id="btnImportTrigger">↑ Importar preset</button>
+          <button class="btn-preset" id="btnResetAll">↺ Encender todo</button>
           <input type="file" id="fileImport" accept=".json" style="display:none" />
         </div>
 
         <details class="ai-section ai-section--collapsed">
           <summary class="ai-summary">
             <span class="btn-generate-icon">{apiKey ? '✦' : '⊘'}</span>
-            Generar reglas desde los apuntes con IA
+            Sacar más reglas de los apuntes con IA
           </summary>
           <p class="ai-section-hint">
             {apiKey
-              ? 'La IA lee todos los apuntes y propone reglas. Tú eliges cuáles añadir.'
+              ? 'La IA lee todos los apuntes y propone reglas que no estén ya marcadas. Tú eliges cuáles añadir.'
               : 'Requiere ANTHROPIC_API_KEY en .env'}
           </p>
           {apiKey && (
@@ -97,7 +128,7 @@ const noteRules = await getNoteRules();
         </div>
 
         <div id="outputEmpty" class="prompt-empty" hidden>
-          No queda ninguna regla activa. Enciende alguna a la izquierda, añade una tuya o vuelve a marcarla en su <a href={`/${firstPostId}`}>apunte</a>.
+          No queda ninguna regla activa. Enciende un apunte a la izquierda, añade una regla tuya o vuelve a marcarla en su <a href={`/${firstPostId}`}>apunte</a>.
         </div>
 
         <div id="outputStale" class="agent-stale" hidden>
@@ -121,57 +152,11 @@ const noteRules = await getNoteRules();
   <div id="toast" class="toast"></div>
 </Layout>
 
-<script is:inline define:vars={{ notesText, apiKey, noteRules }}>
-  const STORAGE_KEY   = 'portulan:rules';
+<script is:inline define:vars={{ notesText, apiKey }}>
   const GENERATED_KEY = 'portulan:generated-prompt';
   const GROUP_ORDER   = ['React', 'Clean Code', 'SOLID'];
-  const NOTE_TEXTS    = new Set(noteRules.map(r => r.text));
-
-  function isNoteRule(rule) { return NOTE_TEXTS.has(rule.text); }
-
-  function seedNoteRules() {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-    const byText = new Map(raw.map(r => typeof r === 'string' ? [r, { id: makeId(), text: r, active: true, tags: [], group: '' }] : [r.text, r]));
-    for (const note of noteRules) {
-      const entry = byText.get(note.text);
-      if (!entry) byText.set(note.text, { id: makeId(), text: note.text, active: true, tags: [], group: note.group });
-      else if (!entry.group) entry.group = note.group;
-    }
-    const ordered = [...noteRules.map(n => byText.get(n.text)), ...[...byText.values()].filter(r => !NOTE_TEXTS.has(r.text))];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ordered));
-  }
-
-  // ── Storage ────────────────────────────────────────────────────────────────
-  function makeId() {
-    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  }
-
-  function getRules() {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
-    return raw.map(r => typeof r === 'string'
-      ? { id: makeId(), text: r, active: true, tags: [], group: '' }
-      : { tags: [], group: '', ...r }
-    );
-  }
-
-  function setRules(rules) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
-    updateBadge(rules);
-    updateTagsDatalist(rules);
-  }
-
-  function normalizeTag(t) { return t.trim().toLowerCase(); }
-
-  function updateTagsDatalist(rules) {
-    const dl = document.getElementById('tagSuggestions');
-    if (!dl) return;
-    const allTags = [...new Set((rules ?? getRules()).flatMap(r => r.tags))].sort();
-    dl.innerHTML = allTags.map(t => `<option value="${t}">`).join('');
-  }
-
-  function updateBadge() {
-    if (window.__portulanPaintBadge) window.__portulanPaintBadge();
-  }
+  const store = window.portulan;
+  const NOTE_TEXTS = new Set(store.noteRules.map(r => r.text));
 
   function showToast(msg, isError = false) {
     const toast = document.getElementById('toast');
@@ -183,8 +168,6 @@ const noteRules = await getNoteRules();
   }
 
   // ── Prompt ─────────────────────────────────────────────────────────────────
-  function activeRules() { return getRules().filter(r => r.active); }
-
   function groupRules(rules) {
     const sections = new Map();
     for (const rule of rules) {
@@ -210,16 +193,16 @@ const noteRules = await getNoteRules();
     return rules.map(r => r.text).sort().join('\u0001');
   }
 
-  const container    = document.getElementById('promptContainer');
-  const outputEmpty  = document.getElementById('outputEmpty');
-  const outputStale  = document.getElementById('outputStale');
+  const container     = document.getElementById('promptContainer');
+  const outputEmpty   = document.getElementById('outputEmpty');
+  const outputStale   = document.getElementById('outputStale');
   const outputActions = document.getElementById('outputActions');
-  const metaCount    = document.getElementById('metaCount');
-  const metaAI       = document.getElementById('metaAI');
-  const btnCopy      = document.getElementById('btnCopy');
-  const btnDownload  = document.getElementById('btnDownload');
-  const btnSynth     = document.getElementById('btnSynth');
-  const synthLabel   = document.getElementById('synthLabel');
+  const metaCount     = document.getElementById('metaCount');
+  const metaAI        = document.getElementById('metaAI');
+  const btnCopy       = document.getElementById('btnCopy');
+  const btnDownload   = document.getElementById('btnDownload');
+  const btnSynth      = document.getElementById('btnSynth');
+  const synthLabel    = document.getElementById('synthLabel');
 
   let currentText = '';
 
@@ -233,7 +216,7 @@ const noteRules = await getNoteRules();
   }
 
   function refreshPrompt() {
-    const rules = activeRules();
+    const rules = store.activeRules();
     const hasRules = rules.length > 0;
 
     outputEmpty.hidden = hasRules;
@@ -275,7 +258,7 @@ const noteRules = await getNoteRules();
   btnDownload.addEventListener('click', () => { if (currentText) downloadMD(currentText); });
 
   async function synthesize() {
-    const rules = activeRules();
+    const rules = store.activeRules();
     if (!rules.length) return;
     btnSynth.disabled = true;
     synthLabel.textContent = 'Sintetizando…';
@@ -331,195 +314,115 @@ El resultado debe:
 
   if (apiKey) btnSynth.addEventListener('click', synthesize);
 
-  // ── Rules list ─────────────────────────────────────────────────────────────
-  let currentTag     = null;
-  let showOnlyActive = false;
+  // ── Left pane ──────────────────────────────────────────────────────────────
+  function paintToggle(button, on, partial = false) {
+    button.classList.toggle('on', on);
+    button.classList.toggle('partial', partial);
+    button.setAttribute('aria-pressed', String(on));
+  }
+
+  function renderNotes() {
+    let totalActive = 0;
+    document.querySelectorAll('[data-note]').forEach(row => {
+      const id = row.dataset.note;
+      const items = [...row.querySelectorAll('[data-toggle-rule]')];
+      let active = 0;
+      items.forEach(button => {
+        const on = store.isActive(button.dataset.toggleRule);
+        if (on) active++;
+        paintToggle(button, on);
+        button.closest('.note-rule').classList.toggle('inactive', !on);
+      });
+      totalActive += active;
+      row.classList.toggle('inactive', active === 0);
+      paintToggle(row.querySelector('[data-toggle-note]'), active > 0, active > 0 && active < items.length);
+      row.querySelector(`[data-count-note="${id}"]`).textContent = `${active} de ${items.length}`;
+    });
+    document.getElementById('notesSummary').textContent = `${totalActive} de ${store.noteRules.length} reglas activas`;
+  }
+
+  function renderCustom() {
+    const list = document.getElementById('customList');
+    const custom = store.getRules().filter(r => !NOTE_TEXTS.has(r.text));
+    list.innerHTML = '';
+    document.getElementById('customSummary').textContent = custom.length
+      ? `${custom.filter(r => r.active).length} de ${custom.length} activas`
+      : '';
+
+    if (!custom.length) {
+      list.innerHTML = '<p class="rules-empty">Nada aún. Lo que no esté en ningún apunte, escríbelo arriba.</p>';
+      return;
+    }
+
+    custom.forEach(rule => {
+      const item = document.createElement('div');
+      item.className = 'rule-item rule-item--compact' + (!rule.active ? ' inactive' : '');
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'rule-toggle rule-toggle--sm';
+      toggle.setAttribute('aria-label', rule.active ? 'Desactivar regla' : 'Activar regla');
+      paintToggle(toggle, rule.active);
+      toggle.addEventListener('click', () => store.setActive([rule.text], !rule.active));
+
+      const text = document.createElement('span');
+      text.className = 'rule-text';
+      text.textContent = rule.text;
+
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn-rule-delete';
+      del.textContent = '×';
+      del.setAttribute('aria-label', 'Eliminar regla');
+      del.addEventListener('click', () => store.setRules(store.getRules().filter(r => r.id !== rule.id)));
+
+      item.appendChild(toggle);
+      item.appendChild(text);
+      item.appendChild(del);
+      list.appendChild(item);
+    });
+  }
 
   function render() {
-    renderFilterBar();
-    renderList();
-    renderSummary();
+    renderCustom();
+    renderNotes();
     refreshPrompt();
   }
 
-  function renderSummary() {
-    const rules = getRules();
-    const active = rules.filter(r => r.active).length;
-    document.getElementById('rulesSummary').textContent =
-      rules.length === 0 ? '' : `${active} de ${rules.length} activas`;
-  }
-
-  function renderFilterBar() {
-    const rules   = getRules();
-    const allTags = [...new Set(rules.flatMap(r => r.tags))].sort();
-    const bar     = document.getElementById('filterBar');
-    const btns    = document.getElementById('filterTagBtns');
-
-    bar.hidden = allTags.length === 0;
-    btns.innerHTML = '';
-
-    const all = document.createElement('button');
-    all.type = 'button';
-    all.className   = 'filter-btn' + (!currentTag ? ' active' : '');
-    all.textContent = 'Todas';
-    all.addEventListener('click', () => { currentTag = null; render(); });
-    btns.appendChild(all);
-
-    allTags.forEach(tag => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className   = 'filter-btn' + (currentTag === tag ? ' active' : '');
-      btn.textContent = tag;
-      btn.addEventListener('click', () => { currentTag = currentTag === tag ? null : tag; render(); });
-      btns.appendChild(btn);
-    });
-  }
-
-  function renderList() {
-    const list  = document.getElementById('rulesList');
-    const rules = getRules();
-
-    const visible = rules.filter(r => {
-      if (currentTag && !r.tags.includes(currentTag)) return false;
-      if (showOnlyActive && !r.active) return false;
-      return true;
-    });
-
-    list.innerHTML = '';
-
-    if (rules.length === 0) {
-      list.innerHTML = '<p class="rules-empty">No hay reglas. Añade las tuyas arriba o crea apuntes con reglas.</p>';
-      return;
-    }
-
-    if (visible.length === 0) {
-      list.innerHTML = '<p class="rules-empty">Ninguna regla coincide con el filtro.</p>';
-      return;
-    }
-
-    const groupsSeen = new Set();
-    groupRules(visible.map(r => ({ ...r, active: true }))).forEach(([name]) => groupsSeen.add(name));
-
-    for (const [groupName] of groupRules(visible)) {
-      const heading = document.createElement('div');
-      heading.className = 'rules-group-title';
-      heading.textContent = groupName;
-      list.appendChild(heading);
-
-      visible.filter(r => (r.group || 'Otras reglas') === groupName).forEach(rule => {
-        list.appendChild(renderRule(rule));
-      });
-    }
-  }
-
-  function renderRule(rule) {
-    const item = document.createElement('div');
-    item.className = 'rule-item' + (!rule.active ? ' inactive' : '');
-    item.dataset.id = rule.id;
-
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'rule-toggle' + (rule.active ? ' on' : '');
-    toggle.setAttribute('aria-label', rule.active ? 'Desactivar regla' : 'Activar regla');
-    toggle.setAttribute('aria-pressed', String(rule.active));
-    toggle.addEventListener('click', () => {
-      const all = getRules();
-      const i   = all.findIndex(r => r.id === rule.id);
-      if (i >= 0) { all[i].active = !all[i].active; setRules(all); render(); }
-    });
-
-    const body = document.createElement('div');
-    body.className = 'rule-body';
-
-    const text = document.createElement('span');
-    text.className   = 'rule-text';
-    text.textContent = rule.text;
-
-    const tagsRow = document.createElement('div');
-    tagsRow.className = 'rule-tags-row';
-
-    rule.tags.forEach(tag => {
-      const chip = document.createElement('span');
-      chip.className = 'rule-tag';
-      const label = document.createElement('span');
-      label.textContent = tag;
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className   = 'tag-del';
-      del.textContent = '×';
-      del.setAttribute('aria-label', `Quitar etiqueta ${tag}`);
-      del.addEventListener('click', e => {
-        e.stopPropagation();
-        const all = getRules();
-        const i   = all.findIndex(r => r.id === rule.id);
-        if (i >= 0) { all[i].tags = all[i].tags.filter(t => t !== tag); setRules(all); render(); }
-      });
-      chip.appendChild(label);
-      chip.appendChild(del);
-      tagsRow.appendChild(chip);
-    });
-
-    const tagInput = document.createElement('input');
-    tagInput.className   = 'input-add-tag';
-    tagInput.placeholder = '+ etiqueta';
-    tagInput.setAttribute('aria-label', 'Añadir etiqueta');
-    tagInput.setAttribute('list', 'tagSuggestions');
-    tagInput.addEventListener('keydown', e => {
-      if (e.key !== 'Enter') return;
+  document.querySelectorAll('[data-toggle-note]').forEach(button => {
+    button.addEventListener('click', e => {
       e.preventDefault();
-      const tag = normalizeTag(tagInput.value);
-      if (!tag) return;
-      const all = getRules();
-      const i   = all.findIndex(r => r.id === rule.id);
-      if (i >= 0 && !all[i].tags.includes(tag)) { all[i].tags.push(tag); setRules(all); render(); }
-      tagInput.value = '';
+      e.stopPropagation();
+      const row = button.closest('[data-note]');
+      const texts = [...row.querySelectorAll('[data-toggle-rule]')].map(b => b.dataset.toggleRule);
+      const anyOn = texts.some(t => store.isActive(t));
+      store.setActive(texts, !anyOn);
     });
-
-    tagsRow.appendChild(tagInput);
-    body.appendChild(text);
-    body.appendChild(tagsRow);
-
-    item.appendChild(toggle);
-    item.appendChild(body);
-
-    if (isNoteRule(rule)) {
-      const origin = document.createElement('span');
-      origin.className = 'rule-origin';
-      origin.textContent = 'apunte';
-      origin.title = 'Viene de un apunte: se puede apagar, no borrar';
-      item.appendChild(origin);
-    } else {
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className   = 'btn-rule-delete';
-      del.textContent = '×';
-      del.setAttribute('aria-label', 'Eliminar regla');
-      del.addEventListener('click', () => { setRules(getRules().filter(r => r.id !== rule.id)); render(); });
-      item.appendChild(del);
-    }
-    return item;
-  }
-
-  document.getElementById('filterActiveOnly').addEventListener('change', e => {
-    showOnlyActive = e.target.checked;
-    render();
   });
 
-  // ── Add by hand ────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-toggle-rule]').forEach(button => {
+    button.addEventListener('click', () => {
+      const text = button.dataset.toggleRule;
+      store.setActive([text], !store.isActive(text));
+    });
+  });
+
+  document.getElementById('btnResetAll').addEventListener('click', () => {
+    store.setActive([...NOTE_TEXTS], true);
+    showToast('Todas las reglas de los apuntes encendidas.');
+  });
+
   document.getElementById('addRuleForm').addEventListener('submit', e => {
     e.preventDefault();
-    const textInput = document.getElementById('inputRuleText');
-    const tagsInput = document.getElementById('inputRuleTags');
-    const text = textInput.value.trim();
+    const input = document.getElementById('inputRuleText');
+    const text = input.value.trim();
     if (!text) return;
-    const current = getRules();
-    if (current.some(r => r.text === text)) { showToast('Esa regla ya existe.', true); return; }
-    const tags = tagsInput.value.split(',').map(normalizeTag).filter(Boolean);
-    setRules([...current, { id: makeId(), text, active: true, tags, group: '' }]);
-    textInput.value = '';
-    tagsInput.value = '';
-    render();
+    if (store.getRules().some(r => r.text === text) || NOTE_TEXTS.has(text)) { showToast('Esa regla ya existe.', true); return; }
+    store.setRules([...store.getRules(), { id: store.makeId(), text, active: true, tags: [], group: '' }]);
+    input.value = '';
   });
+
+  document.addEventListener('portulan:rules-changed', render);
 
   // ── Generate rules from notes with AI ──────────────────────────────────────
   const btnGenerate    = document.getElementById('btnGenerate');
@@ -586,27 +489,25 @@ Devuelve SOLO las reglas, una por línea, sin numeración, sin guiones.`,
         .filter(Boolean);
       if (!selected.length) { showToast('No hay reglas seleccionadas.', true); return; }
 
-      const current = getRules();
+      const current = store.getRules();
       const newOnes = selected
-        .filter(t => !current.some(r => r.text === t))
-        .map(t => ({ id: makeId(), text: t, active: true, tags: [], group: '' }));
+        .filter(t => !current.some(r => r.text === t) && !NOTE_TEXTS.has(t))
+        .map(t => ({ id: store.makeId(), text: t, active: true, tags: [], group: '' }));
 
-      setRules([...current, ...newOnes]);
+      store.setRules([...current, ...newOnes]);
       aiResultsList.innerHTML = '';
       aiResultsList.hidden = true; aiActions.hidden = true;
-      render();
       showToast(`${newOnes.length} regla(s) añadidas.`);
     });
   }
 
   // ── Export / import ────────────────────────────────────────────────────────
   document.getElementById('btnExport').addEventListener('click', () => {
-    const rules = getRules();
-    if (!rules.length) { showToast('No hay reglas para exportar.', true); return; }
+    const active = store.activeRules();
     const blob = new Blob([JSON.stringify({
       name: 'Mi preset',
       exported: new Date().toISOString().split('T')[0],
-      rules: rules.map(r => ({ text: r.text, active: r.active, tags: r.tags, group: r.group || '' })),
+      rules: active.map(r => ({ text: r.text, group: r.group })),
     }, null, 2)], { type: 'application/json' });
     const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'portulan-preset.json' });
     a.click(); URL.revokeObjectURL(a.href);
@@ -625,25 +526,23 @@ Devuelve SOLO las reglas, una por línea, sin numeración, sin guiones.`,
       try {
         const data  = JSON.parse(ev.target.result);
         const items = Array.isArray(data) ? data : (data.rules ?? []);
-        const valid = items
-          .filter(r => typeof r === 'string' || (r && r.text))
-          .map(r => typeof r === 'string'
-            ? { id: makeId(), text: r, active: true, tags: [], group: '' }
-            : { id: makeId(), text: r.text, active: r.active ?? true, tags: (r.tags ?? []).map(normalizeTag), group: r.group || '' }
-          );
-        if (!valid.length) { showToast('No se encontraron reglas en el archivo.', true); return; }
-        const current = getRules();
-        const newOnes = valid.filter(r => !current.some(x => x.text === r.text));
-        setRules([...current, ...newOnes]);
-        render();
-        showToast(`${newOnes.length} regla(s) importadas.`);
+        const texts = items.map(r => typeof r === 'string' ? r : r && r.text).filter(Boolean);
+        if (!texts.length) { showToast('No se encontraron reglas en el archivo.', true); return; }
+
+        const wanted = new Set(texts);
+        store.setActive([...NOTE_TEXTS].filter(t => !wanted.has(t)), false);
+        store.setActive([...NOTE_TEXTS].filter(t => wanted.has(t)), true);
+        const current = store.getRules();
+        const newOnes = texts
+          .filter(t => !NOTE_TEXTS.has(t) && !current.some(r => r.text === t))
+          .map(t => { const src = items.find(i => (typeof i === 'string' ? i : i.text) === t); return { id: store.makeId(), text: t, active: true, tags: [], group: (src && src.group) || '' }; });
+        store.setRules([...current, ...newOnes]);
+        showToast('Preset aplicado.');
       } catch { showToast('Error al leer el archivo JSON.', true); }
     };
     reader.readAsText(file);
     e.target.value = '';
   });
 
-  seedNoteRules();
   render();
-  updateTagsDatalist();
 </script>

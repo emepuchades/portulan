@@ -22,7 +22,7 @@ for (const post of allPosts) {
   groups[g].push(post);
 }
 
-const noteRuleTexts = (await getNoteRules()).map(rule => rule.text);
+const noteRules = await getNoteRules();
 ---
 
 <!DOCTYPE html>
@@ -38,6 +38,104 @@ const noteRuleTexts = (await getNoteRules()).map(rule => rule.text);
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script is:inline define:vars={{ noteRules }}>
+    (function () {
+      const STORAGE_KEY = 'portulan:rules';
+      const legacy = localStorage.getItem('cuaderno:rules');
+      if (legacy && !localStorage.getItem(STORAGE_KEY)) {
+        localStorage.setItem(STORAGE_KEY, legacy);
+        localStorage.removeItem('cuaderno:rules');
+      }
+
+      const noteByText = new Map(noteRules.map(r => [r.text, r]));
+
+      function makeId() {
+        return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      }
+
+      function getRules() {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+        return raw.map(r => typeof r === 'string'
+          ? { id: makeId(), text: r, active: true, tags: [], group: '' }
+          : { tags: [], group: '', ...r });
+      }
+
+      function setRules(rules) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+        paintBadge();
+        document.dispatchEvent(new CustomEvent('portulan:rules-changed'));
+      }
+
+      function isActive(text) {
+        const entry = getRules().find(r => r.text === text);
+        if (entry) return entry.active;
+        return noteByText.has(text);
+      }
+
+      function setActive(texts, active) {
+        const rules = getRules();
+        const byText = new Map(rules.map(r => [r.text, r]));
+        for (const text of texts) {
+          const entry = byText.get(text);
+          if (entry) { entry.active = active; continue; }
+          const note = noteByText.get(text);
+          rules.push({ id: makeId(), text, active, tags: [], group: note ? note.group : '' });
+        }
+        setRules(rules);
+      }
+
+      function activeRules() {
+        const stored = new Map(getRules().map(r => [r.text, r]));
+        const fromNotes = noteRules
+          .filter(n => { const e = stored.get(n.text); return e ? e.active : true; })
+          .map(n => ({ text: n.text, group: n.group, label: n.label, post: n.post, postId: n.postId, fromNote: true }));
+        const custom = [...stored.values()]
+          .filter(r => !noteByText.has(r.text) && r.active)
+          .map(r => ({ text: r.text, group: r.group || '', label: r.text, fromNote: false }));
+        return [...fromNotes, ...custom];
+      }
+
+      function paintBadge() {
+        const badge = document.getElementById('ruleCount');
+        const label = document.getElementById('ruleCountLabel');
+        if (!badge) return;
+        const count = activeRules().length;
+        badge.textContent = String(count);
+        badge.classList.toggle('zero', count === 0);
+        if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
+      }
+
+      function paintEyes() {
+        document.querySelectorAll('[data-eye-post]').forEach(button => {
+          const texts = noteRules.filter(r => r.postId === button.dataset.eyePost).map(r => r.text);
+          const activeCount = texts.filter(isActive).length;
+          const on = activeCount > 0;
+          button.classList.toggle('off', !on);
+          button.setAttribute('aria-pressed', String(on));
+          button.title = on
+            ? (activeCount === texts.length ? 'Sus reglas entran en tu CLAUDE.md. Clic para apagarlas' : `${activeCount} de ${texts.length} reglas activas. Clic para apagarlas`)
+            : 'Sus reglas están apagadas. Clic para encenderlas';
+        });
+      }
+
+      window.portulan = { noteRules, makeId, getRules, setRules, isActive, setActive, activeRules, paintBadge, paintEyes };
+
+      document.addEventListener('DOMContentLoaded', () => {
+        paintBadge();
+        paintEyes();
+        document.querySelectorAll('[data-eye-post]').forEach(button => {
+          button.addEventListener('click', () => {
+            const texts = noteRules.filter(r => r.postId === button.dataset.eyePost).map(r => r.text);
+            const anyOn = texts.some(isActive);
+            setActive(texts, !anyOn);
+          });
+        });
+      });
+
+      document.addEventListener('portulan:rules-changed', () => { paintBadge(); paintEyes(); });
+    })();
+  </script>
 </head>
 <body>
 
@@ -68,12 +166,18 @@ const noteRuleTexts = (await getNoteRules()).map(rule => rule.text);
       <div class="nav-group">
         <div class="nav-group-title">{groupName}</div>
         {posts.map(post => (
-          <a
-            class:list={['nav-link', { active: currentId === post.id }]}
-            href={`/${post.id}`}
-          >
-            <span class="nav-dot"></span> {post.data.title}
-          </a>
+          <div class="nav-item">
+            <a
+              class:list={['nav-link', { active: currentId === post.id }]}
+              href={`/${post.id}`}
+            >
+              <span class="nav-dot"></span> {post.data.title}
+            </a>
+            <button type="button" class="nav-eye" data-eye-post={post.id} aria-label={`Reglas de «${post.data.title}» en tu CLAUDE.md`}>
+              <svg class="eye-on" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-off" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+            </button>
+          </div>
         ))}
       </div>
     ))}
@@ -84,37 +188,6 @@ const noteRuleTexts = (await getNoteRules()).map(rule => rule.text);
 <main class:list={['main', { 'main--wide': isWide }]}>
   <slot />
 </main>
-
-<script is:inline define:vars={{ noteRuleTexts }}>
-  window.__portulanNoteRules = noteRuleTexts;
-
-  const _old = localStorage.getItem('cuaderno:rules');
-  if (_old && !localStorage.getItem('portulan:rules')) {
-    localStorage.setItem('portulan:rules', _old);
-    localStorage.removeItem('cuaderno:rules');
-  }
-
-  window.__portulanActiveCount = function () {
-    const raw = JSON.parse(localStorage.getItem('portulan:rules') ?? '[]');
-    const stored = new Map(raw.map(r => typeof r === 'string' ? [r, { active: true }] : [r.text, r]));
-    const noteSet = new Set(noteRuleTexts);
-    const notesActive = noteRuleTexts.filter(text => { const entry = stored.get(text); return entry ? entry.active : true; }).length;
-    const customActive = [...stored.entries()].filter(([text, entry]) => !noteSet.has(text) && entry.active).length;
-    return notesActive + customActive;
-  };
-
-  window.__portulanPaintBadge = function () {
-    const badge = document.getElementById('ruleCount');
-    const label = document.getElementById('ruleCountLabel');
-    if (!badge) return;
-    const count = window.__portulanActiveCount();
-    badge.textContent = String(count);
-    badge.classList.toggle('zero', count === 0);
-    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
-  };
-
-  window.__portulanPaintBadge();
-</script>
 
 </body>
 </html>
