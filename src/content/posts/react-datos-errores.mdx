@@ -1,0 +1,63 @@
+---
+eyebrow: "REACT · DATOS"
+title: "Datos, carga y errores"
+intro: "Una pantalla no está terminada cuando pinta los datos. Está terminada cuando también pinta la espera, el vacío y el fallo."
+group: "React"
+order: 9
+---
+
+<Concept title="Una capa de datos">
+
+Un componente que hace `fetch` conoce URLs, cabeceras y formatos de respuesta: cosas que cambian por motivos ajenos a la interfaz. Esa responsabilidad vive en una capa de servicios (o en un hook de datos que la usa), con una función por operación. Así el componente pide «los pedidos del usuario» y no sabe de dónde salen, y en tests se sustituye en un solo punto.
+
+```jsx
+// mal: el componente sabe de HTTP
+useEffect(() => { fetch(`${API}/orders?user=${id}`, { headers }).then(r => r.json()).then(setOrders); }, [id]);
+
+// bien: servicio + hook de datos; el componente solo pide
+// services/orders.js
+export function getOrders(userId) { return api.get(`/orders`, { params: { user: userId } }); }
+// screens/Orders/Orders.js
+const { data: orders } = useQuery({ queryKey: ['orders', userId], queryFn: () => getOrders(userId) });
+```
+
+<RuleCheck rule="Los componentes no llaman a fetch ni conocen URLs; acceden a los datos por una capa de servicios o un hook de datos que se puede sustituir en tests.">
+  **Usar en mis reglas de código:** Sin fetch ni URLs en componentes; todo por una capa de servicios.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Cargando, vacío y error son pantallas">
+
+Cada pantalla que carga datos tiene cuatro estados, y tres de ellos suelen quedar sin diseñar: un `return null` mientras carga, una lista vacía sin explicación, un error que se traga en un `catch` vacío. Los tres se diseñan y se implementan: un esqueleto con la forma del contenido, un estado vacío que dice qué hacer, y un error con una acción para recuperarse.
+
+```jsx
+// bien: los cuatro estados, explícitos
+if (isPending) return <OrdersSkeleton />;
+if (error) return <ErrorView message={error.message} onRetry={refetch} />;
+if (orders.length === 0) return <EmptyState title="Sin pedidos" action={<NewOrderButton />} />;
+return <OrdersList orders={orders} />;
+```
+
+<RuleCheck rule="Toda pantalla que carga datos trata explícitamente los estados cargando, vacío y error con su interfaz; no dejes un return null ni un spinner infinito.">
+  **Usar en mis reglas de código:** Cargando, vacío y error diseñados en cada pantalla con datos.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Error Boundaries por zona">
+
+Un error de render sin capturar desmonta todo el árbol: la app entera en blanco por un widget. Cada zona independiente (una tarjeta, un panel lateral, una ruta) va dentro de un Error Boundary con una vista de error que permita recuperarse (reintentar, volver). El error se registra; nunca se silencia.
+
+```jsx
+// bien: el mapa puede fallar sin tirar la pantalla de estadísticas
+<ErrorBoundary fallback={<MapError onRetry={reloadMap} />}>
+  <RouteMap route={route} />
+</ErrorBoundary>
+```
+
+<RuleCheck rule="Cada zona independiente de la interfaz va dentro de un Error Boundary con una vista de error recuperable; un error en un widget no tumba la pantalla.">
+  **Usar en mis reglas de código:** Error Boundary por zona con vista de error recuperable.
+</RuleCheck>
+
+</Concept>

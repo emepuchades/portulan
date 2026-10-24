@@ -1,0 +1,102 @@
+---
+eyebrow: "REACT · ESTADO"
+title: "Estado: dónde vive cada dato"
+intro: "Cada dato tiene un sitio correcto. La mayoría de los bugs de estado son datos guardados donde no tocaba."
+group: "React"
+order: 2
+---
+
+<Concept title="Local por defecto, elevar solo lo necesario">
+
+El estado empieza en el componente que lo usa. Se eleva únicamente cuando dos componentes hermanos lo necesitan, y solo hasta el ancestro común más cercano. Un store global es la última opción, no la primera: cada dato que metes ahí lo acopla a toda la app y lo vuelve difícil de borrar.
+
+```jsx
+// mal: el estado del buscador vive en el store global "por si acaso"
+const query = useAppStore(state => state.searchQuery);
+
+// bien: vive en la pantalla que lo usa; si hace falta en un hijo, baja por props
+function SearchScreen() {
+  const [query, setQuery] = useState('');
+  return <Results query={query} onQueryChange={setQuery} />;
+}
+```
+
+<RuleCheck rule="El estado vive en el componente que lo usa; elévalo solo hasta el ancestro común más cercano que lo necesite y nunca lo metas en un store global por si acaso.">
+  **Usar en mis reglas de código:** Estado local por defecto; elevar solo al ancestro común más cercano.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Lo que se puede calcular, no se guarda">
+
+Si un valor sale de otros (un total, un filtro, un nombre completo), guardarlo en `useState` crea dos fuentes de verdad que hay que sincronizar. Esa sincronización suele acabar en un `useEffect` que corre un render tarde y pinta un frame con datos viejos.
+
+```jsx
+// mal: estado duplicado y un efecto para mantenerlo al día
+const [filtered, setFiltered] = useState([]);
+useEffect(() => { setFiltered(todos.filter(t => !t.done)); }, [todos]);
+
+// bien: se calcula en cada render
+const pending = todos.filter(t => !t.done);
+```
+
+<RuleCheck rule="Si un valor se puede calcular a partir de props o de otro estado, calcúlalo en el render; no lo guardes en useState ni lo sincronices con useEffect.">
+  **Usar en mis reglas de código:** Estado derivado se calcula en el render, nunca se guarda.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Reiniciar con key, no con efectos">
+
+Cuando un componente debe empezar de cero porque cambia la entidad que muestra (otro usuario, otro pedido), lo limpio es decirle a React que es otro componente: una `key` distinta desmonta y monta de nuevo, con todo el estado a cero.
+
+```jsx
+// mal: limpiar campo a campo cuando cambia el id
+useEffect(() => { setDraft(''); setErrors({}); setStep(0); }, [orderId]);
+
+// bien: nueva key, nuevo componente
+<OrderEditor key={orderId} orderId={orderId} />
+```
+
+<RuleCheck rule="Para reiniciar el estado de un componente cuando cambia una entidad (usuario, ruta, pedido), cambia su key; no limpies el estado a mano en un efecto.">
+  **Usar en mis reglas de código:** Reiniciar estado con key, no con efectos de limpieza.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="El estado del servidor no es estado de cliente">
+
+Lo que viene de una API tiene problemas propios: caché, caducidad, reintentos, invalidación tras una escritura, peticiones duplicadas. Un `useState` + `useEffect` no resuelve ninguno, y un store global tampoco. Una librería de consultas (TanStack Query o equivalente) resuelve todos y deja el componente limpio.
+
+```jsx
+// mal: fetch a mano, sin caché ni cancelación, copiado al store
+useEffect(() => { fetch(`/api/orders/${id}`).then(r => r.json()).then(setOrder); }, [id]);
+
+// bien: la consulta declara qué necesita y la librería gestiona el resto
+const { data: order, isPending, error } = useQuery({ queryKey: ['order', id], queryFn: () => getOrder(id) });
+```
+
+<RuleCheck rule="Los datos del servidor (lo que viene de una API) se gestionan con una librería de consultas (TanStack Query o equivalente) con caché, reintentos e invalidación; no se copian a un store global.">
+  **Usar en mis reglas de código:** Datos de servidor con librería de consultas, nunca copiados al store.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Lo compartible vive en la URL">
+
+Filtros, página, pestaña activa, texto de búsqueda: si el usuario debería poder recargar, compartir el enlace o volver atrás y encontrar lo mismo, ese estado pertenece a la URL. Ponerlo en `useState` rompe el botón atrás y los enlaces compartidos.
+
+```jsx
+// mal: el filtro se pierde al recargar
+const [status, setStatus] = useState('open');
+
+// bien: la URL es la fuente de verdad
+const [params, setParams] = useSearchParams();
+const status = params.get('status') ?? 'open';
+```
+
+<RuleCheck rule="Lo que el usuario debería poder compartir o recargar (filtros, página, pestaña activa, búsqueda) vive en la URL, no en useState.">
+  **Usar en mis reglas de código:** Filtros, página y pestaña en la URL, no en useState.
+</RuleCheck>
+
+</Concept>

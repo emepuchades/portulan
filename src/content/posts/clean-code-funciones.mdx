@@ -1,0 +1,113 @@
+---
+eyebrow: "CLEAN CODE · FUNCIONES"
+title: "Funciones pequeñas con un solo nivel"
+intro: "Una función se lee de arriba abajo como un párrafo. Si hay que parar a pensar, hay que partirla."
+group: "Clean Code"
+order: 11
+---
+
+<Concept title="Una cosa por función">
+
+Una función hace una cosa, y esa cosa cabe en su nombre. La prueba: si para describirla necesitas un «y» (`valida y guarda`, `formatea y envía`), son dos funciones. La segunda prueba: dentro de la función todo está al mismo nivel de abstracción; no mezcla «calcular el total del pedido» con «concatenar una cadena con coma».
+
+```js
+// mal: tres niveles de abstracción en una función
+async function submitOrder(order) {
+  if (!order.items.length) throw new Error('empty');
+  const total = order.items.reduce((s, i) => s + i.price * i.qty, 0);
+  const body = JSON.stringify({ ...order, total, createdAt: new Date().toISOString() });
+  const res = await fetch('/api/orders', { method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) throw new Error('failed');
+  return res.json();
+}
+
+// bien: cada función en su nivel
+async function submitOrder(order) {
+  assertHasItems(order);
+  const payload = buildOrderPayload(order);
+  return ordersApi.create(payload);
+}
+```
+
+<RuleCheck rule="Una función hace una sola cosa y se lee de arriba abajo en un nivel de abstracción; si tienes que explicar su nombre con un «y», divídela.">
+  **Usar en mis reglas de código:** Una cosa por función y un solo nivel de abstracción.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Parámetros">
+
+Con más de tres parámetros nadie recuerda el orden y cada llamada es una ocasión de pasarlos cambiados. A partir de ahí, un objeto con propiedades nombradas. Y un parámetro booleano que cambia lo que hace la función (`render(data, true)`) es la señal de que son dos funciones con un `if` dentro: sepáralas y el nombre dirá cuál es cuál.
+
+```js
+// mal
+createUser(name, email, true, false, 'es');
+formatDate(date, true);
+
+// bien
+createUser({ name, email, isAdmin: true, locale: 'es' });
+formatDateShort(date);
+formatDateLong(date);
+```
+
+<RuleCheck rule="Máximo tres parámetros; a partir de ahí, un objeto con propiedades nombradas. Nunca un parámetro booleano que cambie el comportamiento: haz dos funciones.">
+  **Usar en mis reglas de código:** Máximo tres parámetros; nunca un booleano que cambie el comportamiento.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Salida temprana">
+
+Los casos límite se despachan al principio con un `return`, y el camino principal queda sin sangría, legible de un vistazo. Cada nivel de anidación es una condición que hay que mantener en la cabeza hasta que se cierra la llave.
+
+```js
+// mal
+function shippingCost(order) {
+  if (order) {
+    if (order.items.length > 0) {
+      if (order.country === 'ES') {
+        return order.total > 50 ? 0 : 4.99;
+      } else {
+        return 14.99;
+      }
+    }
+  }
+  return 0;
+}
+
+// bien
+function shippingCost(order) {
+  if (!order || order.items.length === 0) return 0;
+  if (order.country !== 'ES') return 14.99;
+  return order.total > 50 ? 0 : 4.99;
+}
+```
+
+<RuleCheck rule="Usa salidas tempranas (return al principio para los casos límite) en vez de anidar condiciones; el camino principal queda sin sangría.">
+  **Usar en mis reglas de código:** Salidas tempranas para los casos límite; camino principal sin sangría.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin efectos escondidos">
+
+Una función que se llama `getUser` y además escribe en caché, o que se llama `isValid` y además muestra un error en pantalla, miente. Si muta algo, el nombre lo dice (`saveUser`, `markAsRead`, `clearCart`), y no devuelve además un cálculo que invite a usarla como consulta. Preguntar y cambiar son operaciones distintas.
+
+```js
+// mal: parece una consulta, pero escribe
+function isValidEmail(email) {
+  const valid = EMAIL.test(email);
+  if (!valid) setError('Email no válido');
+  return valid;
+}
+
+// bien: la consulta consulta; quien la llama decide qué hacer
+function isValidEmail(email) { return EMAIL.test(email); }
+if (!isValidEmail(email)) setError('Email no válido');
+```
+
+<RuleCheck rule="Una función no tiene efectos escondidos: si muta algo, lo dice el nombre (saveUser, markAsRead) y no devuelve además un cálculo.">
+  **Usar en mis reglas de código:** Sin efectos escondidos; mutar y consultar son funciones distintas.
+</RuleCheck>
+
+</Concept>

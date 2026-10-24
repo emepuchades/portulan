@@ -1,0 +1,72 @@
+---
+eyebrow: "REACT · RENDIMIENTO"
+title: "Rendimiento: medir antes de optimizar"
+intro: "Casi todo el código de optimización que se escribe en React no optimiza nada. Lo que sí cuesta son listas y árboles grandes."
+group: "React"
+order: 6
+---
+
+<Concept title="Memoizar con medida">
+
+`memo`, `useMemo` y `useCallback` tienen un coste (memoria, comparación de dependencias, código más difícil de leer) y solo compensan cuando evitan un render caro de verdad. Puestos por costumbre, llenan el código de ruido y a menudo no evitan nada porque alguna prop cambia igual. El React Compiler, además, hace esa memoización solo. La regla es simple: antes de memoizar, el Profiler tiene que enseñar el render que duele.
+
+```jsx
+// mal: memoización por reflejo
+const handleSelect = useCallback(id => setSelected(id), []);
+const sorted = useMemo(() => [...items].sort(byName), [items]);
+const Row = memo(function Row({ item }) { return <li>{item.name}</li>; });
+
+// bien: código directo; si el Profiler muestra un problema, se memoiza ese punto y se anota la medida
+function handleSelect(id) { setSelected(id); }
+const sorted = [...items].sort(byName);
+```
+
+<RuleCheck rule="No uses memo, useMemo ni useCallback por defecto; añádelos solo cuando el Profiler muestre un re-render costoso y deja constancia de la medida en el commit o el PR.">
+  **Usar en mis reglas de código:** Memoizar solo con una medida del Profiler que lo justifique.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Keys estables">
+
+La `key` es cómo React sabe qué elemento es cuál entre renders. Con el índice como key, borrar el primer elemento hace que todos los demás «cambien de identidad»: el estado interno (inputs, animaciones) se queda en la posición equivocada. Con un valor generado en el render (`Math.random`, `Date.now`), todo se desmonta y se monta en cada render.
+
+```jsx
+// mal
+{items.map((item, index) => <Row key={index} item={item} />)}
+
+// bien
+{items.map(item => <Row key={item.id} item={item} />)}
+```
+
+<RuleCheck rule="Las keys de una lista son identificadores estables del dato (id), nunca el índice ni un valor generado en el render.">
+  **Usar en mis reglas de código:** Keys con el id del dato; nunca el índice ni valores generados.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Virtualizar listas, dividir rutas">
+
+Una lista de cientos de filas se renderiza entera aunque solo quepan veinte en pantalla. La virtualización (TanStack Virtual, FlashList en React Native) monta solo lo visible. Y una ruta pesada (un editor, un mapa) no debería cargarse hasta que se navega a ella: `lazy` + `Suspense` la separa del bundle inicial.
+
+```jsx
+// bien: la ruta pesada se descarga al entrar
+const MapScreen = lazy(() => import('./screens/Map/MapScreen'));
+<Suspense fallback={<MapSkeleton />}><MapScreen /></Suspense>
+```
+
+<RuleCheck rule="Las listas que puedan superar unas decenas de elementos se virtualizan; las rutas pesadas se cargan con lazy y Suspense.">
+  **Usar en mis reglas de código:** Listas largas virtualizadas; rutas pesadas con lazy y Suspense.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Lo caro, fuera del render">
+
+Calcular en el render es barato cuando el cálculo lo es: un `filter`, un `map`, un formateo. Lo caro (ordenar miles de elementos, parsear un documento, construir un índice de búsqueda) se hace una vez fuera del render (al recibir los datos, en el servidor, en un worker) o se memoiza con dependencias explícitas y una medida que lo justifique.
+
+<RuleCheck rule="Lo que se calcula en el render es barato; lo caro (ordenar miles de elementos, parsear) se calcula una vez fuera del render o se memoiza con dependencias explícitas.">
+  **Usar en mis reglas de código:** Cálculos caros fuera del render o memoizados con dependencias explícitas.
+</RuleCheck>
+
+</Concept>

@@ -1,0 +1,122 @@
+---
+eyebrow: "SOLID · COMPONENTES"
+title: "SOLID aplicado a componentes de React"
+intro: "Los cinco principios, traducidos a lo que de verdad se decide al escribir un componente."
+group: "SOLID"
+order: 14
+---
+
+<Concept title="S · Una sola razón para cambiar">
+
+Un componente que cambia cuando cambia la API y también cuando cambia el diseño tiene dos responsabilidades. Se separan: un hook de datos (o un servicio) que sabe de dónde vienen las cosas, y un componente de presentación que sabe cómo se ven. Cada uno cambia por su motivo y se prueba por su lado.
+
+```jsx
+// mal: fetch, formato y diseño en el mismo componente
+function UserCard({ id }) {
+  const [user, setUser] = useState(null);
+  useEffect(() => { fetch(`/api/users/${id}`).then(r => r.json()).then(setUser); }, [id]);
+  if (!user) return null;
+  return <div className="card"><img src={user.avatar} /><h3>{user.name}</h3></div>;
+}
+
+// bien: el hook sabe de datos; el componente, de diseño
+function UserCard({ id }) {
+  const { data: user, isPending } = useUser(id);
+  if (isPending) return <UserCardSkeleton />;
+  return <UserCardView name={user.name} avatarUrl={user.avatar} />;
+}
+```
+
+<RuleCheck rule="Un componente tiene una sola razón para cambiar: si cambia porque cambió la API y también porque cambió el diseño, sepáralo en un hook de datos y un componente de presentación.">
+  **Usar en mis reglas de código:** Una razón para cambiar por componente; datos en hook, diseño en vista.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="O · Abierto a extensión, cerrado a modificación">
+
+Un componente bien diseñado admite casos nuevos sin que nadie edite su interior. Las vías son `children` (el que lo usa decide el contenido), una prop de variante con un conjunto cerrado de valores, o un mapa de variantes a componentes. Si cada caso nuevo añade un `if` dentro del componente, está cerrado a extensión y abierto a romperse.
+
+```jsx
+// mal: cada tipo nuevo, un condicional más dentro
+function Notification({ type, text }) {
+  if (type === 'error') return <div className="n-error">⚠ {text}</div>;
+  if (type === 'success') return <div className="n-ok">✓ {text}</div>;
+  if (type === 'warning') return …
+}
+
+// bien: el mapa se extiende sin tocar el componente
+const VARIANTS = { error: ErrorNotification, success: SuccessNotification };
+function Notification({ type, ...props }) {
+  const Variant = VARIANTS[type] ?? DefaultNotification;
+  return <Variant {...props} />;
+}
+```
+
+<RuleCheck rule="Un componente se extiende sin editarlo: nuevas variantes entran por children, por una prop de variante o por composición, no añadiendo condicionales dentro.">
+  **Usar en mis reglas de código:** Extender por children, variante o composición; nunca con más condicionales dentro.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="L · Sustituible por su base">
+
+Si `DangerButton` es «un `Button` rojo», tiene que funcionar en cualquier sitio donde funcione `Button`: mismas props, mismo comportamiento, mismos eventos. Eso se consigue reenviando todas las props con spread y cambiando solo lo que lo diferencia. Si no puede cumplir el contrato del original, no es una variante y no debe llamarse como tal.
+
+```jsx
+// mal: pierde onClick, disabled, aria-* y todo lo que no haya pensado
+function DangerButton({ children }) {
+  return <Button variant="danger">{children}</Button>;
+}
+
+// bien: acepta y reenvía todo
+function DangerButton(props) {
+  return <Button variant="danger" {...props} />;
+}
+```
+
+<RuleCheck rule="Un componente que especializa a otro acepta todas sus props (las reenvía con spread) y se comporta igual donde se use el original; si no puede, no lo nombres como su variante.">
+  **Usar en mis reglas de código:** Una variante reenvía todas las props de su base y se comporta igual.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="I · Props mínimas">
+
+Pasar el objeto entero (`user`) a un componente que solo pinta dos campos lo acopla a toda la forma del objeto: cualquier cambio en `user` puede romperlo, y para probarlo hay que construir un usuario completo. Se pasa lo que se usa. Y si una interfaz de props crece con campos que solo necesitan algunos consumidores, se divide en dos componentes o en dos interfaces.
+
+```jsx
+// mal
+<Avatar user={user} />            // usa user.name y user.avatarUrl
+
+// bien
+<Avatar name={user.name} imageUrl={user.avatarUrl} />
+```
+
+<RuleCheck rule="Un componente recibe solo las props que usa: pásale el nombre y el avatar, no el usuario entero; si una interfaz de props crece con campos que solo usan algunos consumidores, divídela.">
+  **Usar en mis reglas de código:** Solo las props que se usan; interfaces de props pequeñas y divididas.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="D · Depender de abstracciones">
+
+Un componente que llama a `fetch`, lee `localStorage` o importa un SDK depende de una implementación concreta: no se puede probar sin red ni cambiar de proveedor sin tocarlo. Depende en cambio de una abstracción que se le inyecta: un hook de datos, un servicio que llega por contexto o por props. En tests se sustituye; en producción se cambia sin tocar la interfaz.
+
+```jsx
+// mal: el componente conoce el SDK
+import analytics from '@segment/analytics-next';
+function BuyButton() { return <button onClick={() => analytics.track('buy')}>Comprar</button>; }
+
+// bien: depende de una abstracción inyectada
+function BuyButton() {
+  const { track } = useAnalytics();
+  return <button onClick={() => track('buy')}>Comprar</button>;
+}
+```
+
+<RuleCheck rule="Los componentes dependen de abstracciones inyectadas (un hook de datos, un servicio por contexto o por props), nunca de una implementación concreta como fetch, localStorage o un SDK; así se sustituyen en tests y se cambian sin tocar la interfaz.">
+  **Usar en mis reglas de código:** Depender de abstracciones inyectadas, nunca de fetch, localStorage o SDKs directos.
+</RuleCheck>
+
+</Concept>

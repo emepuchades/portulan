@@ -1,0 +1,119 @@
+---
+eyebrow: "REACT · EFECTOS"
+title: "Efectos: solo para sincronizar con el exterior"
+intro: "useEffect es el hook que más se usa mal. Casi todos los efectos de una base de código se pueden borrar."
+group: "React"
+order: 3
+---
+
+<Concept title="Qué es un sistema externo y qué no">
+
+Un efecto existe para que React se sincronice con algo que no controla: una suscripción, un timer, una API del navegador, una librería que toca el DOM, un evento de analítica al montar. Todo lo demás (transformar datos, responder a props, actualizar estado a partir de otro estado) no es un efecto: es render o es un handler.
+
+```jsx
+// mal: el efecto solo copia props a estado
+useEffect(() => { setFullName(`${first} ${last}`); }, [first, last]);
+
+// bien: no hay efecto
+const fullName = `${first} ${last}`;
+```
+
+<MarginNote>
+  **Trampa:** el linter no avisa de un efecto innecesario. Solo avisa de dependencias que faltan. Un efecto con todas sus dependencias puede seguir sobrando.
+</MarginNote>
+
+<RuleCheck rule="useEffect solo sirve para sincronizar con algo externo a React (suscripciones, timers, APIs del navegador, analítica de montaje). Si el efecto solo transforma datos o actualiza estado a partir de props, elimínalo y hazlo en el render.">
+  **Usar en mis reglas de código:** Efectos solo para sincronizar con el exterior; lo demás, en el render.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Lo que hace el usuario va en el handler">
+
+Enviar un formulario, comprar, guardar, mostrar un aviso tras una acción: todo eso lo provoca un evento concreto y debe vivir en su manejador. Un efecto que «vigila» un estado para reaccionar se ejecuta también cuando ese estado cambia por otro motivo (una recarga, una restauración), y envía la petición dos veces.
+
+```jsx
+// mal: el efecto reacciona a un flag que puso el handler
+useEffect(() => { if (submitted) postOrder(cart); }, [submitted]);
+
+// bien: el handler hace lo que el usuario pidió
+async function handleSubmit() {
+  await postOrder(cart);
+  showToast('Pedido enviado');
+}
+```
+
+<RuleCheck rule="La lógica que responde a una acción del usuario (enviar un formulario, comprar, guardar) va en el manejador del evento, nunca en un efecto que vigila un estado.">
+  **Usar en mis reglas de código:** Las acciones del usuario van en el handler, no en un efecto que vigila.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Todo efecto limpia lo que empieza">
+
+Si el efecto se suscribe, arranca un intervalo o lanza una petición, devuelve una función que lo deshace. Sin limpieza, una pantalla que cambia de `id` rápido recibe respuestas en desorden y pinta la última que llega, no la última que pidió.
+
+```jsx
+// mal: sin cancelación, la respuesta vieja puede llegar la última
+useEffect(() => { getUser(id).then(setUser); }, [id]);
+
+// bien: ignora el resultado si el efecto ya no es el vigente
+useEffect(() => {
+  let ignore = false;
+  getUser(id).then(user => { if (!ignore) setUser(user); });
+  return () => { ignore = true; };
+}, [id]);
+```
+
+<RuleCheck rule="Todo efecto que se suscribe, arranca un timer o lanza una petición devuelve una función de limpieza que lo cancela; una petición en efecto ignora su resultado si el componente ya cambió de entrada.">
+  **Usar en mis reglas de código:** Limpieza obligatoria en cada efecto; las peticiones ignoran resultados obsoletos.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin cadenas de efectos">
+
+Un efecto que pone estado, que dispara otro efecto, que pone otro estado: cada eslabón es un render extra y el flujo se vuelve imposible de seguir. Calcula en el render todo lo que se derive, y en el handler fija de una vez el estado siguiente completo.
+
+```jsx
+// mal: tres efectos encadenados para avanzar una partida
+useEffect(() => { if (card) setGold(g => g + 1); }, [card]);
+useEffect(() => { if (gold > 3) setRound(r => r + 1); }, [gold]);
+useEffect(() => { if (round > 5) setGameOver(true); }, [round]);
+
+// bien: lo derivado se calcula; el handler decide
+const isGameOver = round > 5;
+function handlePlaceCard(nextCard) {
+  setCard(nextCard);
+  const nextGold = gold + 1;
+  setGold(nextGold);
+  if (nextGold > 3) setRound(round + 1);
+}
+```
+
+<RuleCheck rule="Nada de cadenas de efectos que se disparan entre sí con setState; calcula en el render lo que se pueda y fija todo el estado siguiente en el mismo manejador de evento.">
+  **Usar en mis reglas de código:** Sin cadenas de efectos; el estado siguiente se fija en el handler.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Leer el exterior con useSyncExternalStore">
+
+Para leer algo que cambia fuera de React (conexión, tamaño de ventana, un store propio, localStorage), `useEffect` + `useState` funciona pero llega un render tarde y falla con render concurrente. `useSyncExternalStore` está hecho para eso y, envuelto en un hook con nombre, deja el componente limpio.
+
+```jsx
+// bien: hook propio sobre useSyncExternalStore
+function useOnlineStatus() {
+  return useSyncExternalStore(
+    callback => { window.addEventListener('online', callback); window.addEventListener('offline', callback); return () => { window.removeEventListener('online', callback); window.removeEventListener('offline', callback); }; },
+    () => navigator.onLine,
+    () => true,
+  );
+}
+```
+
+<RuleCheck rule="Para leer un store externo o una API del navegador que cambia (online, tamaño de ventana, localStorage), usa useSyncExternalStore dentro de un hook propio, no useEffect + useState.">
+  **Usar en mis reglas de código:** Stores externos con useSyncExternalStore en un hook propio.
+</RuleCheck>
+
+</Concept>

@@ -41,6 +41,7 @@ const { rule } = Astro.props;
 
   document.querySelectorAll<HTMLLabelElement>('.rule-check').forEach(label => {
     const rule    = label.dataset.rule!;
+    const group   = label.closest<HTMLElement>('[data-post-group]')?.dataset.postGroup ?? '';
     const checkbox = label.querySelector<HTMLInputElement>('.rule-checkbox')!;
 
     const saved = getRules();
@@ -55,10 +56,10 @@ const { rule } = Astro.props;
         const existing = current.find(r => typeof r !== 'string' && r.text === rule);
         if (existing) {
           updated = current.map(r =>
-            typeof r !== 'string' && r.text === rule ? { ...r, active: true } : r
+            typeof r !== 'string' && r.text === rule ? { ...r, active: true, group: r.group || group } : r
           );
         } else {
-          updated = [...current, { id: makeId(), text: rule, active: true, tags: [] }];
+          updated = [...current, { id: makeId(), text: rule, active: true, tags: [], group }];
         }
       } else {
         updated = current.map(r =>

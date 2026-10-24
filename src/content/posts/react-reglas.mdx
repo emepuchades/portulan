@@ -1,0 +1,103 @@
+---
+eyebrow: "REACT · FUNDAMENTOS"
+title: "Reglas de React"
+intro: "Las cuatro reglas que React da por supuestas y que, si se rompen, producen bugs que no se ven en desarrollo."
+group: "React"
+order: 1
+---
+
+<Concept title="El render es puro">
+
+React puede ejecutar un componente varias veces para un mismo cambio (StrictMode lo hace a propósito en desarrollo, y el render concurrente lo hace en producción cuando pausa y retoma trabajo). Si el render lee algo que cambia entre ejecuciones, o escribe fuera, el resultado depende de cuántas veces se ejecute. Eso es un bug que solo aparece bajo carga.
+
+```jsx
+// mal: el render lee el reloj y escribe en una variable global
+let renders = 0;
+function Invoice({ items }) {
+  renders += 1;
+  const issuedAt = new Date().toLocaleDateString();
+  return <Header date={issuedAt} count={renders} />;
+}
+
+// bien: lo que cambia entra como prop o estado; lo que escribe va a un handler o efecto
+function Invoice({ items, issuedAt }) {
+  return <Header date={formatDate(issuedAt)} />;
+}
+```
+
+<RuleCheck rule="El render es puro: con las mismas props, estado y contexto devuelve lo mismo. Nada de leer Date.now(), Math.random(), variables globales mutables ni hacer peticiones durante el render.">
+  **Usar en mis reglas de código:** Render puro; nada de reloj, azar, globales ni peticiones en el render.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Props y estado son instantáneas">
+
+Las props, el estado y lo que devuelve un hook son fotos de un render concreto. Mutarlos no dispara un nuevo render y, peor, corrompe la foto que React guarda para comparar. El síntoma típico: una lista que no se actualiza aunque «hayas cambiado» el array.
+
+```jsx
+// mal: muta el array del estado y luego lo vuelve a guardar
+function addTag(tag) {
+  tags.push(tag);
+  setTags(tags);
+}
+
+// bien: copia nueva, React detecta el cambio
+function addTag(tag) {
+  setTags(previous => [...previous, tag]);
+}
+```
+
+<RuleCheck rule="Nunca mutes props, estado, ni valores ya pasados a un hook o a JSX; crea copias nuevas (spread, map, filter) y pásalas a setState.">
+  **Usar en mis reglas de código:** Inmutabilidad: copias nuevas, nunca push, splice ni asignación sobre el estado.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Rules of Hooks">
+
+React identifica cada hook por su posición en el orden de llamadas. Un hook dentro de un `if`, un bucle o después de un `return` cambia ese orden entre renders y React asigna el estado al hook equivocado. El linter (`eslint-plugin-react-hooks`) lo detecta en los casos obvios; no en los que se esconden tras una función auxiliar.
+
+```jsx
+// mal: el hook depende de una condición
+function Profile({ user }) {
+  if (!user) return <EmptyState />;
+  const [tab, setTab] = useState('activity');
+  // ...
+}
+
+// bien: todos los hooks arriba, el return condicional después
+function Profile({ user }) {
+  const [tab, setTab] = useState('activity');
+  if (!user) return <EmptyState />;
+  // ...
+}
+```
+
+<RuleCheck rule="Llama a los hooks solo en el nivel superior de un componente o de otro hook, antes de cualquier return condicional, y nunca dentro de bucles, condiciones o funciones normales.">
+  **Usar en mis reglas de código:** Hooks siempre arriba del todo, antes de cualquier return.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="React llama a los componentes, tú no">
+
+Un componente invocado como función normal (`Card(props)`) no tiene identidad para React: sus hooks se mezclan con los del padre y pierde su estado al re-renderizar. Lo mismo pasa al pasar un hook como valor: React no puede saber dónde se ejecuta.
+
+```jsx
+// mal: llama al componente como función
+return <section>{Card({ title })}</section>;
+
+// bien: React lo monta y le da identidad propia
+return <section><Card title={title} /></section>;
+```
+
+<MarginNote>
+  **Trampa:** `items.map(Card)` también es una llamada directa. Escribe `items.map(item => <Card key={item.id} {...item} />)`.
+</MarginNote>
+
+<RuleCheck rule="Usa los componentes solo en JSX; nunca llames a una función componente directamente ni pases hooks como valores.">
+  **Usar en mis reglas de código:** Componentes solo como JSX; hooks solo como llamadas, nunca como valores.
+</RuleCheck>
+
+</Concept>

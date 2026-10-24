@@ -15,7 +15,7 @@
 
 ---
 
-![Portulan: un apunte de React con el sidebar de temas y, abajo, las secciones Reglas y Prompt de tu agente](assets/captura-apunte.webp)
+![Portulan: el apunte de efectos de React, con el sidebar de apuntes (React, Clean Code, SOLID) y las secciones Reglas y Prompt de tu agente](assets/captura-apunte.webp)
 
 > *Un portulano es una carta náutica medieval: trazada por quien ya navegó esas aguas, para no perderse dos veces.*
 > **Portulan es tu carta de código.**
@@ -28,7 +28,7 @@ Portulan tiene dos caras y un solo propósito: que el conocimiento que adquieres
 
 | | |
 |---|---|
-| 📚 **Cuaderno personal** | Apuntes de código estructurados por tema: React, Clean Architecture, SOLID, lógica, IA. Cada concepto explicado a tu manera, con ejemplos reales y notas de lo que importa recordar. |
+| 📚 **Cuaderno personal** | Apuntes de código profesionales, sin introducciones de manual: React tal como se exige en equipos grandes, Clean Code y SOLID. Cada concepto con su ejemplo mal / bien y la regla que sale de él. |
 | 🤖 **Calibrador de IA** | Cada apunte tiene una regla que puedes activar. Las reglas seleccionadas se convierten en un prompt que le dice a Claude (o cualquier IA) exactamente cómo programar **a tu manera**. |
 
 El objetivo no es usar la IA genérica. Es conseguir que la IA programe como tú.
@@ -57,6 +57,20 @@ flowchart LR
 4. **Copias** el resultado a tu `CLAUDE.md`, `.cursorrules`, o como system prompt
 
 ![Cada concepto termina con una casilla «Usar en mis reglas de código»: al marcarla, la regla pasa a tu prompt](assets/captura-regla.webp)
+
+<br />
+
+## Qué trae de serie
+
+Catorce apuntes y 56 reglas listas para marcar. Nada de «qué es React»: lo que se pide en una revisión de código de un equipo grande.
+
+| Grupo | Apuntes |
+|---|---|
+| **React** | Reglas de React · Estado: dónde vive cada dato · Efectos: solo para sincronizar con el exterior · Componentes: composición y contratos · Hooks propios · Rendimiento: medir antes de optimizar · Estructura del proyecto · Tests que dan confianza · Datos, carga y errores |
+| **Clean Code** | Nombres · Funciones pequeñas con un solo nivel · Comentarios y documentación · Formato, tamaño y orden |
+| **SOLID** | Los cinco principios aplicados a componentes de React, con ejemplo mal / bien en cada uno |
+
+Cada regla está escrita para el prompt: imperativa, una sola decisión, comprobable al leer un diff, con la excepción dentro cuando la hay. Al marcarlas, el `CLAUDE.md` sale por secciones (React, Clean Code, SOLID). Borra las que no sean tuyas y añade las que te falten: para eso es un fork.
 
 <br />
 

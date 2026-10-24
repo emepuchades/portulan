@@ -1,0 +1,68 @@
+---
+eyebrow: "CLEAN CODE · FORMATO"
+title: "Formato, tamaño y orden"
+intro: "El formato no se discute, se automatiza. Lo que sí se decide es qué va en cada fichero y en qué orden."
+group: "Clean Code"
+order: 13
+---
+
+<Concept title="Un fichero, una cosa, de arriba abajo">
+
+Un fichero tiene una exportación principal y se lee como un periódico: primero lo importante (lo que se exporta), después los detalles (las funciones auxiliares). Quien lo abre entiende el titular sin bajar. A partir de unas 200 líneas, el fichero está contando dos historias y se divide.
+
+```js
+// bien: lo público arriba, lo auxiliar abajo
+export function calculateRouteProgress(route, steps) {
+  const walkedKm = stepsToKm(steps, route.strideM);
+  return clampPercent(walkedKm / route.totalKm);
+}
+
+function stepsToKm(steps, strideM) { return (steps * strideM) / 1000; }
+function clampPercent(ratio) { return Math.min(100, Math.max(0, ratio * 100)); }
+```
+
+<RuleCheck rule="Un fichero tiene una exportación principal y se lee de arriba abajo: primero lo público, después las funciones auxiliares; si pasa de 200 líneas, se divide.">
+  **Usar en mis reglas de código:** Una exportación principal por fichero, lo público arriba, máximo 200 líneas.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin valores mágicos">
+
+Un `'#e8100c'` suelto, un `'Guardar'` escrito en el JSX, un `86400000` en una resta: cada uno es una decisión sin nombre que habrá que buscar con grep cuando cambie. Los textos pasan por i18n, los colores y espaciados por el theme, y los números por una constante que diga qué son.
+
+```jsx
+// mal
+<Text style={{ color: '#7a7a7a', marginTop: 12 }}>Guardar</Text>
+if (Date.now() - lastSync > 86400000) { … }
+
+// bien
+<Text style={styles.hint}>{t('common.save')}</Text>
+if (Date.now() - lastSync > ONE_DAY_MS) { … }
+```
+
+<RuleCheck rule="Nada de valores mágicos: textos por i18n, colores y espaciados por el theme, números con nombre en una constante.">
+  **Usar en mis reglas de código:** Textos por i18n, colores y espaciados por el theme, números con nombre.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="El formato lo decide una herramienta">
+
+Discutir sobre comas, comillas o sangría es tiempo perdido: Prettier decide y el lint corre en CI, de modo que un fichero mal formateado no entra. Y cuando se reformatea algo que ya existía, va en su propio commit: un diff de formato mezclado con uno de funcionalidad esconde el cambio real.
+
+<RuleCheck rule="El formato lo decide Prettier y el lint corre en CI; un cambio de formato va en su propio commit, nunca mezclado con una funcionalidad.">
+  **Usar en mis reglas de código:** Prettier y lint en CI; el formato va en su propio commit.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Refactor incremental">
+
+Un refactor se hace en pasos pequeños (una pantalla, un componente) y sin mezclarlo con funcionalidad nueva. Cada paso se puede revisar y revertir solo, y se comprueba que no cambia nada visible: los mismos textos, los mismos estilos, los mismos exports y rutas. Un PR que «refactoriza y de paso añade» no se puede revisar ni revertir.
+
+<RuleCheck rule="Refactoriza en cambios pequeños y sin mezclar con funcionalidad nueva; cada cambio mantiene los mismos textos, estilos, exports y rutas.">
+  **Usar en mis reglas de código:** Refactor en pasos pequeños, sin mezclar con features, sin cambiar lo visible.
+</RuleCheck>
+
+</Concept>

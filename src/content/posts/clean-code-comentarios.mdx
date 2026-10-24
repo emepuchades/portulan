@@ -1,0 +1,60 @@
+---
+eyebrow: "CLEAN CODE · DOCUMENTACIÓN"
+title: "Comentarios y documentación"
+intro: "Un comentario es un nombre que no supiste poner. Lo que sí merece explicación tiene otro sitio."
+group: "Clean Code"
+order: 12
+---
+
+<Concept title="El código no lleva comentarios">
+
+Un comentario que explica qué hace un bloque es la confesión de que el bloque no se explica solo. La respuesta es mejorar el nombre o extraer una función que se llame como la explicación. Los comentarios, además, no se ejecutan: el código cambia y el comentario se queda, y a partir de ahí miente.
+
+```js
+// mal
+// comprobamos que el usuario tenga permiso y que la ruta no esté cerrada
+if (user.role === 'admin' || (user.id === route.ownerId && !route.closedAt)) { … }
+
+// bien
+if (canEditRoute(user, route)) { … }
+```
+
+<RuleCheck rule="El código no lleva comentarios: si algo necesita explicación, mejora el nombre o extrae una función con el nombre de esa explicación.">
+  **Usar en mis reglas de código:** Sin comentarios; si algo necesita explicación, mejor nombre o función extraída.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="El porqué tiene otro sitio">
+
+Lo que sí hay que documentar es lo que el código no puede decir: por qué se tomó una decisión, qué trampa hay en un dispositivo concreto, qué no se puede cambiar sin romper otra cosa. Eso va en el README de la pantalla (junto al código, se lee antes de tocarlo) o en el mensaje del commit (junto al cambio, explica el cambio). Dentro del fichero se pierde entre el código y nadie lo busca ahí.
+
+```
+screens/Journey/README.md
+  ## Por qué el loader se muestra antes de pedir la ubicación
+  En Android 12+ el permiso puede tardar …
+```
+
+<RuleCheck rule="Los porqués (decisiones, trampas, límites) se documentan en el README de la pantalla o en el mensaje del commit, nunca en comentarios dentro del fichero.">
+  **Usar en mis reglas de código:** Los porqués van al README de la pantalla o al commit, no al fichero.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin código muerto">
+
+El código comentado «por si acaso» no se recupera nunca: está en git. Un `TODO` sin dueño ni fecha es un comentario que se queda años. O se borra o se convierte en una tarea donde se gestionan las tareas.
+
+```js
+// mal
+// const oldTotal = items.reduce(...)
+// TODO: arreglar esto
+
+// bien: nada. El código viejo está en git y la tarea en el tablero.
+```
+
+<RuleCheck rule="Nunca dejes código comentado ni TODOs sin dueño; se borra o se convierte en tarea.">
+  **Usar en mis reglas de código:** Sin código comentado ni TODOs; se borra o se convierte en tarea.
+</RuleCheck>
+
+</Concept>

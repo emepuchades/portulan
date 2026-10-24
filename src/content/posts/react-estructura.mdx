@@ -1,0 +1,85 @@
+---
+eyebrow: "REACT · ARQUITECTURA"
+title: "Estructura del proyecto"
+intro: "El código se organiza por lo que hace, no por lo que es. Y las importaciones van en una sola dirección."
+group: "React"
+order: 7
+---
+
+<Concept title="Por funcionalidad, no por tipo de fichero">
+
+Las carpetas `components/`, `hooks/` y `utils/` globales llenas de todo son el síntoma de un proyecto organizado por tipo. Para entender una pantalla hay que saltar entre cinco carpetas. Organizado por funcionalidad (o por pantalla), todo lo que pertenece a `Orders` está en `Orders/`: su composición, sus componentes, sus funciones puras, su README. Las carpetas globales quedan solo para lo que de verdad comparten dos o más funcionalidades.
+
+```
+src/
+  screens/
+    Orders/
+      Orders.js            composición: estado + effects + handlers + render
+      Orders.styles.js
+      README.md            cómo funciona, dónde está cada cosa, porqués
+      components/          solo de esta pantalla
+      utils/               funciones puras de esta pantalla
+  components/              compartido por dos o más pantallas
+  hooks/
+  utils/
+  services/                acceso a datos, módulos nativos, APIs
+```
+
+<RuleCheck rule="El código se organiza por funcionalidad o pantalla (screens/X o features/X con sus components, utils y hooks), no por tipo de fichero; a las carpetas globales components/, hooks/ y utils/ solo va lo que usan dos o más funcionalidades.">
+  **Usar en mis reglas de código:** Carpetas por funcionalidad; lo global solo si lo comparten dos o más.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Importaciones en una sola dirección">
+
+Lo compartido no sabe nada de las funcionalidades. Una funcionalidad no importa de otra. La capa de la app (rutas, providers) es la única que las junta. Si `Orders` necesita algo de `Users`, ese algo sube a compartido o se compone en la app; nunca se importa en cruz, porque al tercer cruce ya no se puede borrar nada sin romper otra cosa. Un linter de rutas restringidas (`import/no-restricted-paths`) lo hace cumplir sin discusiones.
+
+```
+compartido  →  funcionalidad  →  app
+(components, hooks, utils, services)   (screens/*)   (navigation, providers)
+```
+
+<RuleCheck rule="Las importaciones van en una sola dirección: lo compartido no importa de funcionalidades, y una funcionalidad no importa de otra; se componen en la capa de la app.">
+  **Usar en mis reglas de código:** Compartido → funcionalidad → app; nunca una funcionalidad importa de otra.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin barrels">
+
+Un `index.js` que reexporta toda una carpeta parece cómodo y tiene dos costes: el bundler no puede eliminar lo que no se usa (todo se importa aunque uses una cosa) y crea dependencias circulares que aparecen como `undefined` sin explicación. Importa cada módulo por su ruta.
+
+```jsx
+// mal
+import { Button, Card, Modal } from '@/components';
+
+// bien
+import { Button } from '@/components/Button/Button';
+```
+
+<RuleCheck rule="No crees ficheros index que reexporten carpetas enteras (barrels); importa cada módulo por su ruta.">
+  **Usar en mis reglas de código:** Sin ficheros index que reexporten carpetas; importar por ruta.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Reutilizar antes de crear">
+
+Antes de escribir un componente, un hook o una util, se busca si ya existe. Si existe y le falta algo, se extiende. Un segundo `Button` ligeramente distinto es deuda desde el primer día. Y al revés: un componente que solo usa una pantalla no va a la carpeta global, porque ahí parece reutilizable y alguien lo reutilizará mal.
+
+<RuleCheck rule="Antes de crear un componente, hook o util, busca si ya existe uno reutilizable y extiéndelo; un componente de una sola pantalla nunca va a la carpeta global.">
+  **Usar en mis reglas de código:** Buscar y extender antes de crear; lo de una sola pantalla no va a global.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Un README por pantalla">
+
+El conocimiento de cómo funciona una pantalla (por qué los efectos van en ese orden, qué pasa al abrir desde una notificación, qué no se puede tocar sin romper el conteo) no cabe en nombres de variables. Va en un README junto a la pantalla, que se lee antes de tocarla y se actualiza al cambiarla. Así el código queda sin comentarios y la documentación tiene un sitio.
+
+<RuleCheck rule="Cada pantalla o funcionalidad lleva un README que explica cómo funciona, dónde está cada cosa y los porqués; el código no lleva comentarios.">
+  **Usar en mis reglas de código:** README por pantalla con el cómo y los porqués; código sin comentarios.
+</RuleCheck>
+
+</Concept>

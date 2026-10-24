@@ -416,6 +416,8 @@ pre.astro-code code {
   color:       var(--text-dim);
 }
 
+.prompt-meta-ai[hidden] { display: none; }
+
 .prompt-meta-ai {
   font-family:   var(--font-mono);
   font-size:     12px;

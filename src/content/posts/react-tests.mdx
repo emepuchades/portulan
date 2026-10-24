@@ -1,0 +1,65 @@
+---
+eyebrow: "REACT · TESTS"
+title: "Tests que dan confianza"
+intro: "Un test vale lo que se parece al uso real. Los que miran dentro del componente se rompen con cada refactor y no detectan nada."
+group: "React"
+order: 8
+---
+
+<Concept title="Comportamiento, no implementación">
+
+Las funciones puras (las de `utils`) se prueban con un test unitario: entrada, salida, casos límite. Los componentes se prueban como los usa una persona: buscando por rol y por texto, haciendo clic, escribiendo. Un test que lee el estado interno, comprueba una clase CSS o espía un método privado se rompe al refactorizar aunque el comportamiento siga bien, y pasa aunque la pantalla esté rota para el usuario.
+
+```jsx
+// mal: mira dentro
+expect(wrapper.state('isOpen')).toBe(true);
+expect(container.querySelector('.modal--open')).not.toBeNull();
+
+// bien: mira lo que ve el usuario
+await user.click(screen.getByRole('button', { name: 'Nueva ruta' }));
+expect(screen.getByRole('dialog', { name: 'Nueva ruta' })).toBeVisible();
+```
+
+<RuleCheck rule="Las funciones puras extraídas a utils llevan test unitario; los componentes se prueban por comportamiento visible (roles, texto, interacción), nunca por su estado interno, clases CSS ni detalles de implementación.">
+  **Usar en mis reglas de código:** Utils con test unitario; componentes por comportamiento, nunca por implementación.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Simular la red, no el módulo">
+
+Mockear el módulo que hace `fetch` o el hook de datos deja sin probar justo la parte que falla en producción: cómo el componente reacciona a una respuesta real, lenta o con error. Simular en la capa de red (MSW o equivalente) prueba el camino completo y el test no se entera de si cambias de librería de datos.
+
+```jsx
+// mal: el hook devuelve lo que yo quiera, la integración queda sin probar
+vi.mock('./useOrders', () => ({ useOrders: () => ({ data: fakeOrders }) }));
+
+// bien: la red responde; todo lo demás es real
+server.use(http.get('/api/orders', () => HttpResponse.json(fakeOrders)));
+```
+
+<RuleCheck rule="Las peticiones de red en tests se simulan en la capa de red (MSW o equivalente), no mockeando el módulo que hace fetch ni el hook de datos.">
+  **Usar en mis reglas de código:** Simular la red con MSW; no mockear módulos ni hooks de datos.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Un comportamiento por test">
+
+Un test se llama por lo que comprueba y comprueba una sola cosa. Cuando falla, el nombre ya dice qué se ha roto. Los snapshots de componentes que cambian de aspecto no comprueban nada: fallan con cada cambio de diseño y se actualizan sin mirar.
+
+```jsx
+// mal
+it('works', () => { /* 40 líneas y 9 expects */ });
+it('matches snapshot', () => { expect(render(<Form />)).toMatchSnapshot(); });
+
+// bien
+it('muestra error si el email no es válido', async () => { /* … */ });
+it('deshabilita enviar mientras guarda', async () => { /* … */ });
+```
+
+<RuleCheck rule="Cada test comprueba un comportamiento y se llama por lo que comprueba («muestra error si el email no es válido»); no uses snapshots para componentes que cambian de aspecto.">
+  **Usar en mis reglas de código:** Un comportamiento por test, con nombre descriptivo; sin snapshots de UI.
+</RuleCheck>
+
+</Concept>

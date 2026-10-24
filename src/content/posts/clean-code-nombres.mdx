@@ -1,0 +1,57 @@
+---
+eyebrow: "CLEAN CODE · NOMBRES"
+title: "Nombres que no necesitan comentario"
+intro: "El nombre es la primera documentación. Si hace falta un comentario para entenderlo, el nombre está mal."
+group: "Clean Code"
+order: 10
+---
+
+<Concept title="El nombre dice qué es y por qué existe">
+
+Un nombre bueno se entiende sin leer el cuerpo. Los genéricos (`data`, `info`, `item`, `temp`, `helper`, `manager`, `utils2`) dicen que algo existe pero no qué es. Las abreviaturas solo valen si son del dominio y todo el equipo las usa igual (`id`, `url`, `km`); `usr`, `btn`, `cfg` ahorran tres letras y cuestan una pregunta cada vez.
+
+```js
+// mal
+const data = await getData(id);
+const temp = data.filter(x => x.a > 0);
+
+// bien
+const orders = await getOrdersByUser(userId);
+const paidOrders = orders.filter(order => order.paidAmount > 0);
+```
+
+<RuleCheck rule="Un nombre explica qué es y por qué existe sin leer el cuerpo; prohibidos los genéricos (data, info, item, temp, helper, manager) y las abreviaturas que no sean del dominio.">
+  **Usar en mis reglas de código:** Nombres que explican; sin genéricos ni abreviaturas fuera del dominio.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Convenciones que se leen solas">
+
+Un booleano se nombra como una pregunta que se responde con sí o no: `isOpen`, `hasError`, `canSubmit`, `shouldRetry`. Un manejador de evento dentro del componente empieza por `handle` (`handleSubmit`); la prop que lo recibe empieza por `on` (`onSubmit`). Con esa pareja se sabe, sin mirar, qué es un callback que viene de fuera y qué es una función propia.
+
+```jsx
+// mal
+const open = true; const error = false;
+<Form submit={submit} />
+
+// bien
+const isOpen = true; const hasError = false;
+<Form onSubmit={handleSubmit} />
+```
+
+<RuleCheck rule="Los booleanos se nombran como preguntas (isOpen, hasError, canSubmit); los manejadores de eventos empiezan por handle y las props de callback por on (handleSubmit, onSubmit).">
+  **Usar en mis reglas de código:** Booleanos como preguntas; handlers con handle, props de callback con on.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Una palabra por concepto">
+
+`fetchUser`, `getUser`, `loadUser` y `retrieveUser` en el mismo proyecto obligan a leer las cuatro para saber si hacen lo mismo. Se elige una palabra por concepto (`get` para leer, `save` para persistir, `remove` para borrar) y se mantiene. Y cuando un nombre cambia, cambia en todas partes: un rename a medias es peor que el nombre viejo.
+
+<RuleCheck rule="Un mismo concepto se llama igual en todo el proyecto (no mezcles fetch/get/load/retrieve para lo mismo); si cambias un nombre, cámbialo en todos los sitios.">
+  **Usar en mis reglas de código:** Una palabra por concepto en todo el proyecto; renombrar es renombrar todo.
+</RuleCheck>
+
+</Concept>

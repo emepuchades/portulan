@@ -1,0 +1,78 @@
+---
+eyebrow: "REACT · HOOKS"
+title: "Hooks propios: cuándo merecen existir"
+intro: "Un hook propio es una abstracción con nombre, no un cajón para sacar líneas del componente."
+group: "React"
+order: 5
+---
+
+<Concept title="Un hook es una abstracción con nombre">
+
+Un hook propio encapsula lógica con estado o efectos y le pone un nombre de dominio: `useOnlineStatus`, `useDebouncedValue`, `useOrders`. Si lo único que hace es trasladar veinte líneas de un componente a otro fichero, no has ganado una abstracción, has ganado un salto de fichero. El componente de orquestación puede tener estado y efectos; no hace falta esconderlos.
+
+```jsx
+// mal: un hook que solo mueve el contenido del componente
+function useOrdersScreen() {
+  const [selected, setSelected] = useState(null);
+  const [filter, setFilter] = useState('open');
+  const { data } = useOrders();
+  const visible = data.filter(o => o.status === filter);
+  return { selected, setSelected, filter, setFilter, visible };
+}
+
+// bien: el hook encapsula una sola cosa con nombre; el resto se queda en la pantalla
+function useDebouncedValue(value, delayMs) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+```
+
+<RuleCheck rule="Crea un hook propio solo si encapsula lógica con estado o efectos que se reutiliza o que tiene nombre de dominio claro (useOnlineStatus, useDebouncedValue); nunca para mover código sin más del componente a otro fichero.">
+  **Usar en mis reglas de código:** Hook propio solo si aporta una abstracción con nombre; no para mover código.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Lo puro no es un hook">
+
+Una función que recibe datos y devuelve datos, sin estado ni efectos, es una función pura: va en `utils`, se testea con un `expect` y se puede usar fuera de React. Envolverla en `useAlgo` la ata a React sin motivo y obliga a cumplir las Rules of Hooks para un cálculo.
+
+```jsx
+// mal: un cálculo disfrazado de hook
+function useTotal(items) {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+// bien: función pura en utils, con test
+export function calculateTotal(items) {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+```
+
+<RuleCheck rule="Una función sin estado ni efectos es una función pura en utils, no un hook; los hooks no se usan para esconder cálculos.">
+  **Usar en mis reglas de código:** Sin estado ni efectos, es una función pura en utils, no un hook.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Qué devuelve un hook">
+
+Una tupla posicional obliga a recordar el orden y a renombrar al destructurar. Un objeto con nombres se lee solo y permite coger únicamente lo que se usa. La excepción es un hook que imita deliberadamente a `useState` (valor y setter), donde la tupla es la convención que todo el mundo conoce.
+
+```jsx
+// mal: ¿qué era el tercer elemento?
+const [data, loading, error, refetch] = useOrders();
+
+// bien: nombres, y coges lo que necesitas
+const { data, isPending, refetch } = useOrders();
+```
+
+<RuleCheck rule="Un hook devuelve un objeto con nombres (loading, error, data, refetch), no una tupla posicional, salvo que imite deliberadamente a useState.">
+  **Usar en mis reglas de código:** Los hooks devuelven objetos con nombres, no tuplas.
+</RuleCheck>
+
+</Concept>

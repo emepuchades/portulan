@@ -60,15 +60,6 @@ for (const post of allPosts) {
       </div>
     ))}
 
-    {['Clean Architecture', 'SOLID y Clean Code', 'Lógica de programación', 'IA']
-      .filter(g => !groups[g])
-      .map(g => (
-        <div class="nav-group">
-          <div class="nav-group-title">{g}</div>
-        </div>
-      ))
-    }
-
     <!-- MI AGENTE -->
     <div class="nav-section-label nav-section-label--spaced">Mi agente</div>
 

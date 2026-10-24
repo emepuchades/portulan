@@ -1,0 +1,98 @@
+---
+eyebrow: "REACT · COMPONENTES"
+title: "Componentes: composición y contratos"
+intro: "Un componente bueno hace una cosa, se extiende sin tocarlo y cabe en una pantalla."
+group: "React"
+order: 4
+---
+
+<Concept title="Orquestar o presentar">
+
+Hay dos tipos de componente. El que orquesta tiene estado, efectos, handlers y decide qué montar. El que presenta recibe props y pinta. Cuando un componente hace las dos cosas, cada cambio de diseño toca la lógica y cada cambio de lógica toca el diseño, y nadie quiere tocarlo.
+
+```jsx
+// mal: fetch, estado, handlers y 120 líneas de JSX en el mismo sitio
+function OrdersScreen() { /* todo junto */ }
+
+// bien: la pantalla orquesta; la lista y la fila presentan
+function OrdersScreen() {
+  const { data, isPending } = useOrders();
+  const [selected, setSelected] = useState(null);
+  if (isPending) return <OrdersSkeleton />;
+  return <OrdersList orders={data} selectedId={selected} onSelect={setSelected} />;
+}
+```
+
+<RuleCheck rule="Un componente hace una de dos cosas: orquesta (estado, efectos, handlers, composición) o presenta (recibe props y pinta). Si hace las dos, divídelo.">
+  **Usar en mis reglas de código:** Cada componente orquesta o presenta; nunca las dos cosas.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Composición, no booleanos">
+
+La señal de alarma es un componente al que cada caso nuevo le añade una prop booleana: `isCompact`, `hideFooter`, `isAdmin`, `withBorder`. Al cuarto booleano hay dieciséis combinaciones y nadie sabe cuáles funcionan. Se resuelve con `children`, con slots nombrados o con una prop de variante cerrada.
+
+```jsx
+// mal: cada caso nuevo, un booleano más
+<Card title="Pedido" hideFooter isCompact showBadge badgeText="Nuevo" />
+
+// bien: el que usa la tarjeta decide qué va dentro
+<Card variant="compact">
+  <Card.Header><Badge>Nuevo</Badge> Pedido</Card.Header>
+  <Card.Body>…</Card.Body>
+</Card>
+```
+
+<RuleCheck rule="Extiende un componente con children, slots o una prop de variante; nunca añadiendo una prop booleana más por cada caso nuevo (isCompact, isAdmin, hideFooter…).">
+  **Usar en mis reglas de código:** Extender con children, slots o variante; nunca con otro booleano.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Controlado o no controlado, desde el principio">
+
+Un input que a veces recibe `value` y a veces no cambia de modo a mitad de vida y React avisa con un warning que nadie lee. Decide al diseñar el componente: o el padre manda siempre (`value` + `onChange`) o el componente guarda su valor y expone `defaultValue`.
+
+```jsx
+// mal: cambia de modo según venga value o no
+<Input value={maybeValue} onChange={handleChange} />
+
+// bien: contrato fijo
+<Input value={value} onChange={handleChange} />        // controlado
+<Input defaultValue="hola" onBlur={handleBlur} />      // no controlado
+```
+
+<RuleCheck rule="Un componente de formulario es controlado o no controlado desde el principio; nunca cambia de modo según si value es undefined.">
+  **Usar en mis reglas de código:** Un input es controlado o no controlado; nunca cambia de modo.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Sin prop drilling">
+
+Una prop que baja tres niveles sin que nadie la use por el camino acopla a todos los intermedios a algo que no es suyo. Antes de abrir un contexto, prueba la composición: monta el componente que necesita el dato arriba y pásalo ya hecho. Si de verdad es transversal (tema, usuario, idioma), un contexto acotado.
+
+```jsx
+// mal: user atraviesa Layout y Sidebar para llegar a Avatar
+<Layout user={user}><Sidebar user={user}><Avatar user={user} /></Sidebar></Layout>
+
+// bien: el que tiene el dato monta el componente
+<Layout sidebar={<Sidebar><Avatar user={user} /></Sidebar>} />
+```
+
+<RuleCheck rule="Si una prop atraviesa más de dos niveles sin usarse por el camino, resuélvelo con composición (pasa el componente ya montado) o con un contexto acotado; no sigas taladrando.">
+  **Usar en mis reglas de código:** Más de dos niveles sin uso = composición o contexto, no más props.
+</RuleCheck>
+
+</Concept>
+
+<Concept title="Límite por fichero">
+
+Un componente que no cabe en una pantalla no se puede revisar de una vez. El límite útil está en torno a las 200 líneas, y se mantiene sacando los estilos a su fichero, las funciones puras a `utils` y los trozos de JSX con nombre propio a componentes hijos.
+
+<RuleCheck rule="Un fichero de componente no supera las 200 líneas ni mezcla más de un componente exportado; los estilos van en su fichero y las funciones puras en utils.">
+  **Usar en mis reglas de código:** Máximo 200 líneas y un componente exportado por fichero.
+</RuleCheck>
+
+</Concept>

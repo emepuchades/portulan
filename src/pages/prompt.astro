@@ -55,15 +55,34 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
   const btnCopy       = document.getElementById('btnCopy');
   const btnRegenerate = document.getElementById('btnRegenerate');
 
+  const GROUP_ORDER = ['React', 'Clean Code', 'SOLID'];
+
   function getActiveRules() {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
     return raw
       .filter(r => typeof r === 'string' || r.active)
-      .map(r => typeof r === 'string' ? r : r.text);
+      .map(r => typeof r === 'string' ? { text: r, group: '' } : { text: r.text, group: r.group ?? '' });
+  }
+
+  function groupRules(rules) {
+    const sections = new Map();
+    for (const rule of rules) {
+      const name = rule.group || 'Otras reglas';
+      if (!sections.has(name)) sections.set(name, []);
+      sections.get(name).push(rule.text);
+    }
+    const rank = name => { const i = GROUP_ORDER.indexOf(name); return i === -1 ? GROUP_ORDER.length : i; };
+    return [...sections.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
+  }
+
+  function rulesAsList(rules) {
+    return groupRules(rules)
+      .map(([name, texts]) => `## ${name}\n${texts.map(t => `- ${t}`).join('\n')}`)
+      .join('\n\n');
   }
 
   function rawText(rules) {
-    return `Al programar en este proyecto, sigue estas reglas:\n\n${rules.map(r => `- ${r}`).join('\n')}\n\nAplícalas de forma consistente. Si encuentras un caso no cubierto, consulta antes de adoptar una convención nueva.`;
+    return `Al programar en este proyecto, sigue estas reglas.\n\n${rulesAsList(rules)}\n\nAplícalas de forma consistente. Si encuentras un caso no cubierto, consulta antes de adoptar una convención nueva.`;
   }
 
   function setOutput(text) {
@@ -75,7 +94,8 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
   }
 
   function downloadMD(text) {
-    const blob = new Blob([`# Mi agente\n\n${text}\n`], { type: 'text/markdown' });
+    const date = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([`# Reglas de código\n\n${text}\n\n---\nGenerado con Portulan · ${date}\n`], { type: 'text/markdown' });
     const a    = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob), download: 'CLAUDE.md',
     });
@@ -148,8 +168,8 @@ const apiKey = import.meta.env.ANTHROPIC_API_KEY ?? '';
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-opus-4-8',
-          max_tokens: 1024,
+          model: 'claude-opus-5-5',
+          max_tokens: 2048,
           system: `Eres un experto en prompt engineering para asistentes de programación.
 Convierte las reglas de código de un programador en un system prompt natural y coherente para Claude.
 
@@ -157,11 +177,12 @@ El resultado debe:
 - Dirigirse a Claude en segunda persona ("Cuando programes...", "Prioriza...", "Evita...")
 - Ser fluido y natural, no una lista de bullets
 - Capturar el espíritu detrás de las reglas, no repetirlas literalmente
-- Tener entre 3 y 5 párrafos
-- Comenzar con una frase que capture el estilo general del programador`,
+- Empezar con una frase que capture el estilo general del programador
+- Dedicar un párrafo a cada grupo de reglas (React, Clean Code, SOLID…), en ese orden
+- No perder ninguna regla concreta: las excepciones y los límites numéricos se conservan`,
           messages: [{
             role: 'user',
-            content: `Estas son mis reglas de código. Conviértelas en el system prompt de mi agente:\n\n${rules.map(r => `- ${r}`).join('\n')}`,
+            content: `Estas son mis reglas de código, por grupos. Conviértelas en el system prompt de mi agente:\n\n${rulesAsList(rules)}`,
           }],
         }),
       });
