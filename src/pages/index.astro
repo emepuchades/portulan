@@ -1,8 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
+import PostPage from '../components/PostPage.astro';
 
 const posts = await getCollection('posts');
 posts.sort((a, b) => a.data.order - b.data.order);
-
-return Astro.redirect(`/${posts[0].id}`);
 ---
+
+<PostPage post={posts[0]} />

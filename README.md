@@ -15,6 +15,8 @@
 
 ---
 
+**Pruébalo:** [portulan-six.vercel.app](https://portulan-six.vercel.app)
+
 ![Portulan: el apunte de efectos de React, con el sidebar de apuntes (React, Clean Code, SOLID) y las secciones Reglas y Prompt de tu agente](assets/captura-apunte.webp)
 
 > *Un portulano es una carta náutica medieval: trazada por quien ya navegó esas aguas, para no perderse dos veces.*

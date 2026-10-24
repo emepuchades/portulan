@@ -1,0 +1,183 @@
+---
+import { render } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Concept from './Concept.astro';
+import RuleCheck from './RuleCheck.astro';
+import MarginNote from './MarginNote.astro';
+
+interface Props {
+  post: any;
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const apiKey    = import.meta.env.ANTHROPIC_API_KEY ?? '';
+const postBody  = post.body ?? '';
+const postTitle = post.data.title;
+const postGroup = post.data.group;
+---
+
+<Layout title={`${post.data.title} · Portulan`} currentId={post.id}>
+  <div class="topic-eyebrow">{post.data.eyebrow}</div>
+  <h1 class="topic-title">{post.data.title}</h1>
+  <p class="topic-intro">{post.data.intro}</p>
+
+  <div data-post-group={post.data.group}>
+    <Content components={{ Concept, RuleCheck, MarginNote }} />
+  </div>
+
+  <!-- GENERAR REGLAS DE ESTE APUNTE -->
+  <div class="post-ai-section">
+    <div class="post-ai-divider"></div>
+
+    <button class="btn-generate" id="btnGenerate">
+      <span class="btn-generate-icon">✦</span>
+      Generar reglas de este apunte
+    </button>
+    <p class="ai-section-hint">La IA extrae reglas concretas de este apunte. Tú eliges cuáles añadir a tu agente.</p>
+
+    <div id="aiPanel" hidden>
+      {apiKey ? (
+        <>
+          <div id="aiLoading" hidden class="ai-loading">
+            <span class="ai-dot"></span>
+            Analizando «{post.data.title}»…
+          </div>
+          <div id="aiResults" hidden class="ai-results-list"></div>
+          <div id="aiActions" hidden class="ai-actions">
+            <button class="btn-copy" id="btnAddSelected">Añadir seleccionadas a mis reglas</button>
+          </div>
+        </>
+      ) : (
+        <div class="ai-no-key">
+          <p class="ai-no-key-title">Falta la clave de API</p>
+          <p class="ai-no-key-body">
+            Añade <code>ANTHROPIC_API_KEY</code> en el archivo <code>.env</code> de la raíz del proyecto.
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>
+
+<script is:inline define:vars={{ apiKey, postBody, postTitle, postGroup }}>
+  const STORAGE_KEY = 'portulan:rules';
+
+  function makeId() {
+    return 'rule_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function getRules() {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    return raw.map(r => typeof r === 'string'
+      ? { id: makeId(), text: r, active: true, tags: [], group: '' }
+      : r
+    );
+  }
+
+  function setRules(rules) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rules));
+    const count = rules.filter(r => r.active).length;
+    const badge = document.getElementById('ruleCount');
+    const label = document.getElementById('ruleCountLabel');
+    if (badge) { badge.textContent = String(count); badge.classList.toggle('zero', count === 0); }
+    if (label) label.textContent = count === 1 ? 'regla activa' : 'reglas activas';
+  }
+
+  const btnGenerate    = document.getElementById('btnGenerate');
+  const aiPanel        = document.getElementById('aiPanel');
+  const aiLoading      = document.getElementById('aiLoading');
+  const aiResultsList  = document.getElementById('aiResults');
+  const aiActions      = document.getElementById('aiActions');
+  const btnAddSelected = document.getElementById('btnAddSelected');
+
+  btnGenerate.addEventListener('click', () => {
+    const opening = aiPanel.hidden;
+    aiPanel.hidden = !opening;
+    if (opening && apiKey) callAI();
+  });
+
+  async function callAI() {
+    if (!aiLoading) return;
+    aiLoading.hidden = false;
+    aiResultsList.hidden = true;
+    aiActions.hidden = true;
+    aiResultsList.innerHTML = '';
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-5-5',
+          max_tokens: 800,
+          system: `Eres un asistente que ayuda a programadores a definir su estilo de código personal.
+Analiza el apunte y extrae entre 3 y 7 reglas concretas que reflejen cómo esta persona prefiere programar.
+Criterios: instrucción directa, verbo de acción (Usar/Evitar/Nunca/Siempre/Preferir), máximo 2 frases cada una.
+Devuelve SOLO las reglas, una por línea, sin numeración, sin guiones, sin encabezados.`,
+          messages: [{
+            role: 'user',
+            content: `APUNTE: ${postTitle}\n\n${postBody}`,
+          }],
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message ?? `Error ${res.status}`);
+      }
+
+      const data  = await res.json();
+      const lines = data.content[0].text
+        .split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+
+      aiLoading.hidden = true;
+      aiResultsList.hidden = false;
+      aiActions.hidden = false;
+
+      lines.forEach(rule => {
+        const item = document.createElement('label');
+        item.className = 'rule-suggestion-item';
+        const cb  = Object.assign(document.createElement('input'), { type: 'checkbox', checked: true });
+        const txt = Object.assign(document.createElement('span'), { className: 'rule-text', textContent: rule });
+        item.appendChild(cb);
+        item.appendChild(txt);
+        aiResultsList.appendChild(item);
+      });
+
+    } catch (err) {
+      aiLoading.hidden = true;
+      aiResultsList.hidden = false;
+      aiResultsList.innerHTML = `<p class="ai-error">Error: ${err.message}</p>`;
+    }
+  }
+
+  if (btnAddSelected) {
+    btnAddSelected.addEventListener('click', () => {
+      const selected = [...aiResultsList.querySelectorAll('input:checked')]
+        .map(cb => cb.closest('label').querySelector('.rule-text').textContent.trim())
+        .filter(Boolean);
+
+      if (!selected.length) return;
+
+      const current = getRules();
+      const newOnes = selected
+        .filter(t => !current.some(r => r.text === t))
+        .map(t => ({ id: makeId(), text: t, active: true, tags: [], group: postGroup }));
+
+      setRules([...current, ...newOnes]);
+
+      btnAddSelected.textContent = `${newOnes.length} añadida(s) ✓`;
+      setTimeout(() => { btnAddSelected.textContent = 'Añadir seleccionadas a mis reglas'; }, 2000);
+
+      aiPanel.hidden = true;
+      aiResultsList.innerHTML = '';
+    });
+  }
+</script>
